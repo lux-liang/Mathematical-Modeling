@@ -1,42 +1,31 @@
 # Mathematical-Modeling
 
-全国大学生数学建模竞赛常用 LaTeX 模板仓库。
+全国大学生数学建模竞赛 LaTeX 极简模板。
 
-当前仓库已放入 `cumcmthesis` 模板，可直接从 `example.tex` 开始修改。
+这个仓库只保留一版简洁可用的论文模板，不包含广告、教程、示例图片或无关资料。
 
-## 文件说明
+## 文件
 
+- `main.tex`: 论文主文件
 - `cumcmthesis.cls`: 模板类文件
-- `example.tex`: 示例论文源码
-- `example.pdf`: 示例编译结果
-- `figures/`: 示例图片资源
+- `LICENSE`: 上游模板所附 MIT 许可
 
-## 使用方法
+## 编译
 
-建议使用 `XeLaTeX` 编译：
+使用 `XeLaTeX`：
 
 ```bash
-xelatex example.tex
+xelatex main.tex
 ```
 
-电子版提交通常需要去掉承诺书和编号页，可使用：
+电子版提交建议使用：
 
 ```tex
 \documentclass[withoutpreface,bwprint]{cumcmthesis}
 ```
 
-保留封面页时可使用：
+如果需要纸质版封面和编号页，可去掉 `withoutpreface`。
 
-```tex
-\documentclass[bwprint]{cumcmthesis}
-```
+## 来源
 
-## 上游来源
-
-本仓库当前内容整理自：
-
-- `latexstudio/CUMCMThesis`
-- 上游地址：<https://github.com/latexstudio/CUMCMThesis>
-- 本次采用的上游提交：`90d3e854534ae7dc605dfe9296785f8c17e56e22`
-
-说明见 `UPSTREAM.md`。
+当前模板基于 `tinoryj/Mathematical-Contest-in-Modeling` 仓库中的 `CUMCM_tinoryj_Template` 整理而来，并做了极简化处理。
