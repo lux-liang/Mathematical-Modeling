@@ -67,7 +67,21 @@
   }%
 }
 
+\def\@contestname{}
+\def\@school{}
+\def\@teamname{}
+\def\@members{}
+\def\@advisor{}
+\def\@keywords{}
+
+\newcommand{\contestname}[1]{\gdef\@contestname{#1}}
+\newcommand{\school}[1]{\gdef\@school{#1}}
+\newcommand{\teamname}[1]{\gdef\@teamname{#1}}
+\newcommand{\members}[1]{\gdef\@members{#1}}
+\newcommand{\advisor}[1]{\gdef\@advisor{#1}}
+
 \newcommand\keywords[1]{%
+  \gdef\@keywords{#1}%
   \par\vskip1ex
   {\noindent\zihao{-4}\heiti 关键词：}#1
 }
@@ -126,10 +140,16 @@
 \renewcommand{\maketitle}{%
   \begin{center}
     {\zihao{2}\bfseries \@title \par}
-    \vskip 1.5em
-    {\zihao{4}\@author \par}
     \vskip 0.8em
-    {\zihao{-4}\@date \par}
+    {\zihao{4}\@contestname \par}
+    \vskip 1.2em
+    \begin{tabular}{rl}
+      学校名称： & \@school \\
+      队伍编号： & \@teamname \\
+      参赛队员： & \@members \\
+      指导教师： & \@advisor \\
+      完成日期： & \@date \\
+    \end{tabular}
   \end{center}
   \vskip 1.2em
 }

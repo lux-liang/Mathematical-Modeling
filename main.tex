@@ -1,27 +1,31 @@
 \documentclass{cumcmthesis}
 
-\title{新疆大学数学建模校赛论文题目}
-\author{队员一 \quad 队员二 \quad 队员三}
-\date{新疆大学数学建模校赛}
+\title{论文标题}
+\contestname{数学建模竞赛论文}
+\school{学校名称}
+\teamname{队伍编号}
+\members{成员一 \quad 成员二 \quad 成员三}
+\advisor{指导教师姓名}
+\date{2026 年 4 月}
 
 \begin{document}
 
 \maketitle
 
 \begin{abstract}
-这里填写摘要内容，简要概述问题背景、建模思路、求解方法与主要结论。
+摘要应简要概述问题背景、核心假设、建模方法、求解过程与主要结论。通常建议在一页内完成，并突出模型创新点与结果有效性。
 
-\keywords{数学建模 \quad 校赛 \quad 关键词1 \quad 关键词2}
+\keywords{数学建模 \quad 优化方法 \quad 数据分析 \quad 预测模型}
 \end{abstract}
 
 \section{问题重述}
-简要说明题目背景、研究目标和约束条件。
+简要重述题目背景、研究目标、输入条件与约束要求，明确本文需要解决的核心问题。
 
 \section{模型假设}
 \begin{itemize}
-  \item 假设一。
-  \item 假设二。
-  \item 假设三。
+  \item 根据题意与实际背景提出合理假设。
+  \item 对不易直接观测的因素进行必要简化。
+  \item 在不影响主要结论的前提下忽略次要扰动。
 \end{itemize}
 
 \section{符号说明}
@@ -30,52 +34,56 @@
 \toprule
 符号 & 含义 \\
 \midrule
-$x$ & 变量示例 \\
-$y$ & 指标示例 \\
+$x_i$ & 第 $i$ 个决策变量 \\
+$y_t$ & 第 $t$ 时刻的观测值 \\
+$f(\cdot)$ & 目标函数或评价函数 \\
 \bottomrule
 \end{tabular}
 \end{center}
 
 \section{问题分析}
 \subsection{问题一分析}
-这里填写对问题一的分析。
+说明问题一的本质、可用方法、关键难点以及选择该方法的理由。
 
 \subsection{问题二分析}
-这里填写对问题二的分析。
+说明问题二与问题一的联系、数据特点和建模思路差异。
 
 \section{模型建立与求解}
 \subsection{模型建立}
-这里填写模型建立过程。
+给出变量定义、目标函数、约束条件以及模型推导过程。
 
 \subsection{模型求解}
-这里填写求解方法、算法过程与结果。
+说明所采用的算法、求解步骤、参数设置与计算结果。
+
+\section{结果分析}
+结合表格、图像或关键指标分析模型结果，并解释结果的实际意义。
 
 \section{模型检验}
-这里填写误差分析、灵敏度分析或稳定性检验。
+可从误差分析、灵敏度分析、稳定性分析或交叉验证等角度检验模型可靠性。
 
 \section{模型评价与推广}
 \subsection{模型优点}
 \begin{itemize}
-  \item 优点一。
-  \item 优点二。
+  \item 结构清晰，便于解释与复现。
+  \item 能够较好刻画问题中的关键因素。
 \end{itemize}
 
 \subsection{模型不足}
 \begin{itemize}
-  \item 不足一。
-  \item 不足二。
+  \item 对部分假设存在依赖。
+  \item 在复杂场景下仍有进一步改进空间。
 \end{itemize}
 
 \subsection{模型推广}
-这里填写模型的推广与应用方向。
+说明模型可推广到的类似问题或后续可改进方向。
 
 \begin{thebibliography}{9}
-\bibitem{ref1} 参考文献示例 1.
-\bibitem{ref2} 参考文献示例 2.
+\bibitem{ref1} 作者. 文献标题[J]. 期刊名称, 年份, 卷(期): 页码.
+\bibitem{ref2} 作者. 书名[M]. 出版地: 出版社, 年份.
 \end{thebibliography}
 
 \appendix
 \section{附录}
-这里填写补充推导、代码说明或附表。
+这里可放补充推导、程序流程、关键代码说明或附表。
 
 \end{document}
