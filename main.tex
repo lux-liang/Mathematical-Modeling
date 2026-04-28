@@ -58,6 +58,24 @@ $f(\cdot)$ & 目标函数或评价函数 \\
 \section{结果分析}
 结合表格、图像或关键指标分析模型结果，并解释结果的实际意义。
 
+\begin{figure}[htbp]
+  \centering
+  \fbox{\rule{0pt}{45mm}\rule{0.78\textwidth}{0pt}}
+  \caption{结果图占位示意}
+  \label{fig:placeholder}
+\end{figure}
+
+图 \ref{fig:placeholder} 展示了图片占位的写法。后续只需要将占位框替换为正式图片，例如：
+
+\begin{verbatim}
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.75\textwidth]{figures/result.png}
+  \caption{模型结果图}
+  \label{fig:result}
+\end{figure}
+\end{verbatim}
+
 \section{模型检验}
 可从误差分析、灵敏度分析、稳定性分析或交叉验证等角度检验模型可靠性。
 
