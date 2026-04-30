@@ -16,6 +16,7 @@
 - `figures/paper/fig7_task_timeline.pdf`：由 `outputs/tables/selected_tasks_R5_multi_uncertainty.csv` 和 `outputs/tables/final_task_stability_audit_v3.csv` 生成，展示最终任务准备窗口 Gantt 图。
 - `figures/paper/fig8_robust_model_comparison.pdf`：由 `outputs/tables/robust_task_model_comparison.csv` 和 `outputs/tables/robust_task_model_comparison_v3.csv` 生成，展示 R1/R3/R4/R5/R6 的裕度和与场景可行率。
 - `figures/paper/fig9_smoothing_audit.pdf`：由 `outputs/tables/oversmoothing_audit.csv` 生成，展示平滑窗口对候选任务数量和状态估计偏移的影响。
+- `figures/paper/fig10_task_feasibility_heatmap.pdf`：由 `outputs/tables/multi_uncertainty_task_pool.csv` 生成，展示多场景候选任务在目标--时间二维空间中的可行性和平均稳定裕度。
 
 生成脚本：
 

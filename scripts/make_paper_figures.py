@@ -402,6 +402,48 @@ def plot_smoothing_audit() -> None:
     save(OUT / "fig9_smoothing_audit.pdf")
 
 
+def plot_task_feasibility_heatmap() -> None:
+    candidates = pd.read_csv(B_DIR / "outputs" / "tables" / "multi_uncertainty_task_pool.csv")
+    if candidates.empty:
+        return
+    candidates = candidates.copy()
+    candidates["target_task"] = candidates["目标编号"].astype(str) + candidates["任务"].astype(str)
+    candidates["time_bin"] = np.floor(candidates["exec_time"].to_numpy(float) / 10.0) * 10.0
+    heat = candidates.pivot_table(
+        index="target_task",
+        columns="time_bin",
+        values="margin_mean",
+        aggfunc="max",
+        observed=False,
+    )
+
+    def sort_key(value: str) -> tuple[str, int]:
+        text = str(value)
+        prefix = text[0]
+        number = int("".join(ch for ch in text if ch.isdigit()) or 0)
+        return prefix, number
+
+    heat = heat.reindex(sorted(heat.index, key=sort_key))
+    values = np.ma.masked_invalid(heat.to_numpy(dtype=float))
+    fig, ax = plt.subplots(figsize=(10.0, 6.2))
+    cmap = mpl.colormaps["YlGnBu"].copy()
+    cmap.set_bad("#ECEFF3")
+    im = ax.imshow(values, aspect="auto", interpolation="nearest", cmap=cmap, vmin=0)
+
+    x_values = heat.columns.to_numpy(dtype=float)
+    step = max(1, len(x_values) // 12)
+    ax.set_xticks(np.arange(len(x_values))[::step])
+    ax.set_xticklabels([f"{x:.0f}" for x in x_values[::step]], rotation=45, ha="right")
+    ax.set_yticks(np.arange(len(heat.index)))
+    ax.set_yticklabels(heat.index)
+    ax.set_xlabel("任务执行时刻 / s")
+    ax.set_ylabel("目标与任务类型")
+    ax.set_title("多场景候选任务的目标--时间可行性热力图")
+    cbar = fig.colorbar(im, ax=ax, fraction=0.025, pad=0.02)
+    cbar.set_label("最大平均稳定裕度")
+    save(OUT / "fig10_task_feasibility_heatmap.pdf")
+
+
 def main() -> None:
     setup()
     plot_pipeline_overview()
@@ -414,6 +456,7 @@ def main() -> None:
     plot_timeline()
     plot_robust_model_comparison()
     plot_smoothing_audit()
+    plot_task_feasibility_heatmap()
     print(f"paper figures written to {OUT}")
 
 
