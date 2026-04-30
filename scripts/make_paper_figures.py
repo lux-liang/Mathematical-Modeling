@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -67,6 +68,11 @@ def save(path: Path) -> None:
 
 
 def plot_pipeline_overview() -> None:
+    custom_pipeline = ROOT / "框架图.pdf"
+    if custom_pipeline.exists():
+        shutil.copyfile(custom_pipeline, GEN_OUT / "fig_pipeline_overview.pdf")
+        return
+
     fig, ax = plt.subplots(figsize=(10.6, 2.8))
     ax.set_xlim(0, 1)
     ax.set_ylim(0, 1)

@@ -6,7 +6,7 @@
 
 ## 图来源
 
-- `figures/generated/fig_pipeline_overview.pdf`：由 `scripts/make_paper_figures.py` 根据模型流程绘制，不含新数值结果，用于展示总体技术路线。
+- `figures/generated/fig_pipeline_overview.pdf`：由仓库根目录 `框架图.pdf` 复制生成，用于展示总体技术路线。
 - `figures/paper/fig1_attachment1_alignment.pdf`：由 `outputs/trajectories/fused_attachment1_10hz.csv` 和 `附件1.xlsx` 生成，展示附件1时间对齐前后轨迹。
 - `figures/paper/fig2_attachment2_correction.pdf`：由 `outputs/trajectories/fused_attachment2_10hz.csv` 和 `附件2.xlsx` 生成，展示附件2固定平移型相对偏差校正前后轨迹。
 - `figures/paper/fig3_attachment2_residuals.pdf`：由 `outputs/tables/attachment2_residuals.csv` 生成，展示附件2校正后残差散点。
