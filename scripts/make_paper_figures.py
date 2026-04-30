@@ -315,10 +315,18 @@ def plot_timeline() -> None:
     selected = selected_r5()
     risk = pd.read_csv(B_DIR / "outputs" / "tables" / "final_task_stability_audit_v3.csv")
     risk_map = dict(zip(risk["target_id"].astype(str), risk["risk_level"].astype(str)))
-    fig, ax = plt.subplots(figsize=(8.2, 4.7))
+    fig, axes = plt.subplots(
+        1,
+        2,
+        figsize=(9.0, 4.8),
+        sharey=True,
+        gridspec_kw={"width_ratios": [3.1, 1.05], "wspace": 0.035},
+    )
     labels = selected["目标编号"].astype(str).tolist()
     y_pos = np.arange(len(selected))[::-1]
     color_map = {"射击": BLUE, "拍照": ORANGE}
+    axes[0].set_xlim(476.6, 511.1)
+    axes[1].set_xlim(749.2, 753.1)
     for yy, (_, row) in zip(y_pos, selected.iterrows()):
         task = row["任务"]
         target = str(row["目标编号"])
@@ -328,25 +336,34 @@ def plot_timeline() -> None:
         is_high = risk_map.get(target, "") == "high"
         edge = RED if is_high else DARK
         lw = 1.5 if is_high else 0.7
-        ax.barh(
-            yy,
-            width,
-            left=start,
-            height=0.56,
-            color=color_map[task],
-            alpha=0.78,
-            edgecolor=edge,
-            linewidth=lw,
-        )
-        ax.plot(end, yy, marker="*", color=RED if is_high else DARK, markersize=8.5, zorder=5)
-        if is_high:
-            ax.text(end + 0.08, yy + 0.16, "边界", fontsize=7.4, color=RED)
-    ax.set_yticks(y_pos, labels)
-    ax.set_xlabel("时间 / s")
-    ax.set_ylabel("最终任务")
-    ax.set_title("R5最终任务准备窗口与执行时序")
-    ax.set_ylim(-0.8, len(selected) - 0.2)
-    ax.legend(
+        for ax in axes:
+            xmin, xmax = ax.get_xlim()
+            left = max(start, xmin)
+            right = min(end, xmax)
+            if right > left:
+                ax.barh(
+                    yy,
+                    right - left,
+                    left=left,
+                    height=0.56,
+                    color=color_map[task],
+                    alpha=0.78,
+                    edgecolor=edge,
+                    linewidth=lw,
+                )
+            if xmin <= end <= xmax:
+                ax.plot(end, yy, marker="*", color=RED if is_high else DARK, markersize=8.5, zorder=5)
+                if is_high:
+                    ax.text(end + 0.08, yy + 0.16, "边界", fontsize=7.4, color=RED)
+    axes[0].set_yticks(y_pos, labels)
+    axes[0].set_ylabel("最终任务")
+    axes[0].set_xticks(np.arange(477, 512, 5))
+    axes[1].set_xticks(np.arange(750, 754, 1))
+    axes[0].set_ylim(-0.8, len(selected) - 0.2)
+    axes[0].set_title("R5最终任务准备窗口与执行时序")
+    axes[1].set_title("末段放大")
+    fig.supxlabel("时间 / s", y=0.02)
+    axes[0].legend(
         handles=[
             mpl.patches.Patch(facecolor=BLUE, edgecolor=DARK, alpha=0.78, label="射击准备窗口"),
             mpl.patches.Patch(facecolor=ORANGE, edgecolor=DARK, alpha=0.78, label="拍照准备窗口"),
@@ -354,9 +371,16 @@ def plot_timeline() -> None:
             mpl.patches.Patch(facecolor="white", edgecolor=RED, linewidth=1.5, label="高风险边界任务"),
         ],
         frameon=False,
-        loc="lower right",
+        loc="lower left",
     )
-    style_axis(ax)
+    for ax in axes:
+        style_axis(ax)
+        ax.spines["right"].set_visible(False)
+        ax.spines["left"].set_visible(ax is axes[0])
+    axes[1].tick_params(axis="y", left=False, labelleft=False)
+    kwargs = dict(marker=[(-1, -0.45), (1, 0.45)], markersize=8, linestyle="none", color=GRAY, mec=GRAY, mew=1.0, clip_on=False)
+    axes[0].plot([1, 1], [0, 1], transform=axes[0].transAxes, **kwargs)
+    axes[1].plot([0, 0], [0, 1], transform=axes[1].transAxes, **kwargs)
     save(OUT / "fig7_task_timeline.pdf")
 
 
@@ -450,6 +474,166 @@ def plot_task_feasibility_heatmap() -> None:
     save(OUT / "fig10_task_feasibility_heatmap.pdf")
 
 
+def plot_candidate_heatmap_refined() -> None:
+    candidates = pd.read_csv(B_DIR / "outputs" / "tables" / "multi_uncertainty_task_pool.csv")
+    selected = selected_r5()
+    if candidates.empty:
+        return
+
+    windows = [(470.0, 530.0), (740.0, 760.0)]
+    work = candidates[
+        ((candidates["exec_time"] >= windows[0][0]) & (candidates["exec_time"] < windows[0][1]))
+        | ((candidates["exec_time"] >= windows[1][0]) & (candidates["exec_time"] < windows[1][1]))
+    ].copy()
+    work["目标编号"] = work["目标编号"].astype(str)
+    work["目标任务"] = work["目标编号"] + " " + work["任务"].astype(str)
+    first_time = work.groupby(["任务", "目标编号"])["exec_time"].min()
+    selected_targets = set(selected["目标编号"].astype(str))
+
+    def row_order(item: tuple[str, str]) -> tuple[int, float, str]:
+        task, target = item
+        task_rank = 0 if task == "拍照" else 1
+        return task_rank, float(first_time.loc[(task, target)]), target
+
+    ordered_pairs = sorted(first_time.index.to_list(), key=row_order)
+    row_labels = [f"{target} {task}" for task, target in ordered_pairs]
+    row_index = {label: i for i, label in enumerate(row_labels)}
+    high_risk = {"P10", "P02", "S16"}
+
+    colors = ["#F3F4F6", "#C9DCE0", "#72AEB4", "#2F7F97", "#174A7C"]
+    cmap = mpl.colors.LinearSegmentedColormap.from_list("paper_availability", colors)
+    cmap.set_bad("#FFFFFF")
+    vmax = 0.32
+    norm = mpl.colors.Normalize(vmin=0.0, vmax=vmax)
+
+    fig = plt.figure(figsize=(7.2, 5.0))
+    gs = fig.add_gridspec(
+        nrows=1,
+        ncols=3,
+        width_ratios=[3.0, 1.3, 0.10],
+        left=0.18,
+        right=0.92,
+        bottom=0.13,
+        top=0.88,
+        wspace=0.08,
+    )
+    axes = [fig.add_subplot(gs[0, 0]), fig.add_subplot(gs[0, 1])]
+    cax = fig.add_subplot(gs[0, 2])
+
+    for ax, (lo, hi), panel_title in zip(axes, windows, ["(a) 470--530 s", "(b) 740--760 s"]):
+        ax.set_facecolor("white")
+        ax.axvspan(lo, hi, color="#F7F8FA", zorder=0)
+        ax.set_xlim(lo, hi)
+        ax.set_ylim(len(row_labels) - 0.5, -0.5)
+        ax.set_title(panel_title, fontsize=9.5, pad=5)
+        ax.grid(axis="x", color="#E5E7EB", linewidth=0.55, alpha=0.70)
+        ax.grid(axis="y", color="#EEF0F3", linewidth=0.55, alpha=0.85)
+        ax.set_axisbelow(True)
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+        ax.spines["left"].set_color("#9CA3AF")
+        ax.spines["bottom"].set_color("#9CA3AF")
+        ax.tick_params(axis="both", labelsize=8.2, length=2.5, color="#6B7280")
+
+        part = work[(work["exec_time"] >= lo) & (work["exec_time"] < hi)].copy()
+        if not part.empty:
+            part["time_bin"] = np.floor(part["exec_time"].to_numpy(float))
+            agg = (
+                part.groupby(["目标任务", "time_bin"], as_index=False)["margin_mean"]
+                .max()
+                .sort_values(["目标任务", "time_bin"])
+            )
+            for _, row in agg.iterrows():
+                label = str(row["目标任务"])
+                if label not in row_index:
+                    continue
+                y = row_index[label]
+                x = float(row["time_bin"])
+                value = float(row["margin_mean"])
+                ax.add_patch(
+                    mpl.patches.Rectangle(
+                        (x, y - 0.34),
+                        0.92,
+                        0.68,
+                        facecolor=cmap(norm(value)),
+                        edgecolor="none",
+                        zorder=2,
+                    )
+                )
+
+        sel_part = selected[(selected["任务执行时刻(s)"] >= lo) & (selected["任务执行时刻(s)"] < hi)]
+        for _, row in sel_part.iterrows():
+            target = str(row["目标编号"])
+            label = f"{target} {row['任务']}"
+            if label not in row_index:
+                continue
+            is_boundary = target in high_risk
+            ax.scatter(
+                float(row["任务执行时刻(s)"]),
+                row_index[label],
+                marker="*",
+                s=92 if not is_boundary else 112,
+                color="#B55239" if is_boundary else "#D97904",
+                edgecolor="#253238",
+                linewidth=0.55,
+                zorder=5,
+            )
+            if is_boundary:
+                ax.scatter(
+                    float(row["任务执行时刻(s)"]) + 0.55,
+                    row_index[label],
+                    marker="^",
+                    s=24,
+                    color="#B55239",
+                    edgecolor="#253238",
+                    linewidth=0.35,
+                    zorder=6,
+                )
+
+    axes[0].set_yticks(np.arange(len(row_labels)))
+    axes[0].set_yticklabels(row_labels)
+    for tick in axes[0].get_yticklabels():
+        target = tick.get_text().split()[0]
+        tick.set_fontsize(8.0)
+        if target in selected_targets:
+            tick.set_color("#111827")
+            tick.set_fontweight("bold")
+        else:
+            tick.set_color("#9CA3AF")
+    axes[1].set_yticks(np.arange(len(row_labels)))
+    axes[1].set_yticklabels([])
+    axes[0].set_ylabel("目标与任务类型", fontsize=9)
+    fig.supxlabel("任务执行时刻 / s", fontsize=9.2, y=0.055)
+    fig.suptitle("候选任务窗口的目标--时间分布与稳定裕度", fontsize=11.0, fontweight="bold", y=0.965)
+
+    axes[0].set_xticks(np.arange(470, 531, 10))
+    axes[1].set_xticks(np.arange(740, 761, 5))
+    axes[0].text(529.6, len(row_labels) - 0.25, "//", fontsize=12, color="#6B7280", ha="right", va="bottom")
+    axes[1].text(740.4, len(row_labels) - 0.25, "//", fontsize=12, color="#6B7280", ha="left", va="bottom")
+
+    sm = mpl.cm.ScalarMappable(norm=norm, cmap=cmap)
+    sm.set_array([])
+    cbar = fig.colorbar(sm, cax=cax)
+    cbar.set_label("平均稳定裕度", fontsize=8.6)
+    cbar.set_ticks([0.0, 0.1, 0.2, 0.3])
+    cbar.ax.tick_params(labelsize=8)
+    cbar.outline.set_linewidth(0.6)
+
+    handles = [
+        mpl.patches.Patch(facecolor="#72AEB4", edgecolor="none", label="候选窗口稳定裕度"),
+        mpl.lines.Line2D([0], [0], marker="*", color="w", markerfacecolor="#D97904", markeredgecolor="#253238", markersize=9, label="R5选中任务"),
+        mpl.lines.Line2D([0], [0], marker="*", color="w", markerfacecolor="#B55239", markeredgecolor="#253238", markersize=9, label="边界任务"),
+    ]
+    axes[1].legend(handles=handles, frameon=False, loc="lower right", bbox_to_anchor=(1.02, -0.02), fontsize=8.0)
+
+    for path in [GEN_OUT / "fig_candidate_heatmap_refined.pdf", GEN_OUT / "fig_candidate_heatmap_refined.png"]:
+        kwargs = {"bbox_inches": "tight", "pad_inches": 0.03}
+        if path.suffix == ".png":
+            kwargs["dpi"] = 400
+        fig.savefig(path, **kwargs)
+    plt.close(fig)
+
+
 def main() -> None:
     setup()
     plot_pipeline_overview()
@@ -463,6 +647,7 @@ def main() -> None:
     plot_robust_model_comparison()
     plot_smoothing_audit()
     plot_task_feasibility_heatmap()
+    plot_candidate_heatmap_refined()
     print(f"paper figures written to {OUT}")
 
 
