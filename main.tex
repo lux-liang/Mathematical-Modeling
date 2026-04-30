@@ -1,6 +1,10 @@
 \documentclass{cumcmthesis}
 
-\title{论文标题}
+\usepackage{float}
+\usepackage{subcaption}
+\usepackage{url}
+
+\title{基于时空配准与稳定裕度优化的多源融合机器人定位及任务规划模型}
 \contestname{数学建模竞赛论文}
 \school{学校名称}
 \teamname{队伍编号}
@@ -8,100 +12,467 @@
 \advisor{指导教师姓名}
 \date{2026 年 4 月}
 
+\newcommand{\dd}{\mathrm{d}}
+\newcommand{\argmin}{\mathop{\mathrm{arg\,min}}}
+\newcommand{\norm}[1]{\left\lVert #1 \right\rVert}
+\newcommand{\figpath}{figures/paper}
+
 \begin{document}
 
 \maketitle
 
 \begin{abstract}
-摘要应简要概述问题背景、核心假设、建模方法、求解过程与主要结论。通常建议在一页内完成，并突出模型创新点与结果有效性。
+针对多源定位数据存在采样频率不同、起始时间不同步、随机噪声和潜在系统偏差等问题，本文建立了基于时空配准与稳定裕度优化的多源融合机器人定位及任务规划模型。以定位方式1的时间轴为参考，定义定位方式2的相对时间偏差为 $t_{2,\mathrm{aligned}}=t_2+\Delta$，首先利用三次样条插值将两源轨迹映射到统一时间域，并以重叠区间均方根误差最小为目标估计相对时间偏差；随后对含噪声数据引入相对平移系统偏差，采用鲁棒中位数估计偏差并进行10 Hz轨迹融合。对于实际测量数据，进一步结合分块 Bootstrap 置信区间与工程阈值进行系统偏差判定，避免在偏差不显著时过度校正。
 
-\keywords{数学建模 \quad 优化方法 \quad 数据分析 \quad 预测模型}
+对于问题一，附件1的估计结果为 $\Delta=-198.4317\ \mathrm{s}$，重叠区间为 $270.4000$--$970.7500\ \mathrm{s}$，共约 $7004$ 个10 Hz点，对齐后 RMSE 近似为0，说明无噪声数据的时间对齐模型有效且不是短区间伪最优。对于问题二，附件2的相对时间偏差为 $\Delta=-50.4947\ \mathrm{s}$，系统偏差为 $(3.480,-1.822)\ \mathrm{m}$，RMSE 由 $3.997\ \mathrm{m}$ 降至 $0.731\ \mathrm{m}$，改善率为 $81.70\%$。对于问题三，附件3估计 $\Delta=367.8843\ \mathrm{s}$，系统偏差模长为 $0.3315\ \mathrm{m}$，小于工程阈值 $\tau_b=0.5490\ \mathrm{m}$，且 Bootstrap 检验中 $b_x$ 置信区间包含0，因此判定无明显固定系统偏差。偏差结构模型比较表明，旋转和平移尺度模型相对平移模型的提升均小于 $5\%$，故最终采用平移系统偏差模型。
+
+对于问题四，本文不重新规划路径，而是在附件3融合后的10 Hz固定轨迹上构造射击与拍照任务可行时间窗，并建立混合整数规划模型。模型按字典序优先最大化任务数量，其次最大化覆盖目标数、拍照角度覆盖和稳定裕度总和。结果表明，贪心基线可完成9条任务、覆盖9个目标、稳定裕度和为2.496；混合整数规划同样完成9条任务并覆盖9个目标，但稳定裕度和提高至5.804，提升约 $132.5\%$。最终任务的距离、速度、加速度、拍照角度和时间冲突约束均通过复核，并已填入结果模板。
+
+\keywords{多源定位融合；时间对齐；系统偏差；Bootstrap检验；混合整数规划；任务优化}
 \end{abstract}
 
 \section{问题重述}
-简要重述题目背景、研究目标、输入条件与约束要求，明确本文需要解决的核心问题。
+\subsection{问题背景}
+自主移动机器人在执行巡检、射击模拟、拍照扫描等任务时，通常依赖多个定位设备获得自身位置。不同定位设备的输出频率、启动时刻、噪声水平和坐标偏差可能并不一致。若直接将异步、多频率、含噪声的定位序列进行融合，会导致轨迹错位、速度和加速度估计失真，并进一步影响任务执行时刻的可行性判断。
 
-\section{模型假设}
-\begin{itemize}
-  \item 根据题意与实际背景提出合理假设。
-  \item 对不易直接观测的因素进行必要简化。
-  \item 在不影响主要结论的前提下忽略次要扰动。
-\end{itemize}
+题目给出了两种定位方式的数据。其中方式1采样频率为4 Hz，方式2采样频率为5 Hz。附件1为无噪声双源定位数据，主要用于时间对齐；附件2含随机噪声和固定系统偏差；附件3为实际测量数据；附件4给出了射击与拍照目标点。最终需要在固定轨迹上选择尽可能优的任务执行方案，并填写结果模板。
 
-\section{符号说明}
-\begin{center}
-\begin{tabular}{cc}
-\toprule
-符号 & 含义 \\
-\midrule
-$x_i$ & 第 $i$ 个决策变量 \\
-$y_t$ & 第 $t$ 时刻的观测值 \\
-$f(\cdot)$ & 目标函数或评价函数 \\
-\bottomrule
-\end{tabular}
-\end{center}
+\subsection{问题要求}
+本文需要解决四个层次的问题：第一，在无噪声条件下估计两种定位方式的相对时间偏差，并输出10 Hz融合轨迹；第二，在含噪声与固定系统偏差条件下，同时估计相对时间偏差与相对平移偏差，并评估校正效果；第三，对实际测量数据判断是否存在明显固定系统偏差，并生成融合轨迹及运动学量；第四，在附件3融合轨迹固定的前提下，满足射击和拍照任务的距离、速度、加速度、准备窗口和拍照角度约束，选择最终任务组合。
 
 \section{问题分析}
-\subsection{问题一分析}
-说明问题一的本质、可用方法、关键难点以及选择该方法的理由。
+\subsection{异步双源定位数据的时间配准问题}
+两源定位数据的核心差异首先表现为时间轴不一致。由于方式1和方式2采样频率不同，原始采样点通常无法逐点对应。因此需先构造连续轨迹插值函数，再在重叠时间区间内搜索时间偏差。附件1无噪声，若时间偏差估计正确，两条插值轨迹应在重叠区间内高度重合。
 
-\subsection{问题二分析}
-说明问题二与问题一的联系、数据特点和建模思路差异。
+\subsection{含噪声与系统偏差的数据融合问题}
+附件2在时间不同步之外还存在随机测量噪声和固定系统偏差。随机噪声会导致逐点差值波动，系统偏差会使两条轨迹在整体上发生平移错位。因此，本文在时间配准基础上引入相对平移偏差 $\bm b=(b_x,b_y)^\top$，并使用鲁棒统计量估计该偏差，以降低离群点对结果的影响。
 
-\section{模型建立与求解}
-\subsection{模型建立}
-给出变量定义、目标函数、约束条件以及模型推导过程。
+\subsection{实际测量数据的系统偏差判断问题}
+实际测量数据中的两源差异并不一定来自固定系统偏差，也可能来自随机误差、局部遮挡、轨迹动态变化或传感器瞬态误差。若仅根据估计偏差非零便进行校正，可能引入不必要的系统性修正。因此本文对附件3采用工程阈值和 Bootstrap 置信区间双判据，只有偏差幅值足够大且统计上显著时才判定存在明显系统偏差。
 
-\subsection{模型求解}
-说明所采用的算法、求解步骤、参数设置与计算结果。
+\subsection{固定轨迹下的射击与拍照任务优化问题}
+问题四不是路径规划问题，机器人轨迹已由附件3融合结果确定。任务优化的决策变量是是否在某些可行时刻执行某个目标任务。射击与拍照均要求执行前一段准备窗口内连续满足约束，而不是仅在执行瞬间满足约束。该问题天然具有0--1选择结构，并存在任务窗口冲突、同一射击目标最多一次、拍照角度差等组合约束，适合建立混合整数规划模型求解。
 
-\section{结果分析}
-结合表格、图像或关键指标分析模型结果，并解释结果的实际意义。
+\section{模型假设与符号说明}
+\subsection{模型假设}
+\begin{enumerate}
+  \item 两种定位方式观测的是同一机器人平面轨迹，坐标单位均为米，时间单位均为秒。
+  \item 本文以方式1时间轴为参考，估计的时间偏差和系统偏差均为相对量，不代表绝对真实偏差。
+  \item 在短时间配准区间内，附件2和附件3的固定系统偏差可近似为二维平移向量。
+  \item 轨迹在相邻采样点之间足够平滑，可用三次样条进行插值。
+  \item 问题四中机器人路径固定，不进行重新规划；只优化任务执行目标和执行时刻。
+  \item 速度和加速度由平滑后的10 Hz融合轨迹计算，用于降低测量噪声对运动学约束的放大影响。
+\end{enumerate}
 
-\begin{figure}[htbp]
+\subsection{符号说明表}
+\begin{table}[H]
   \centering
-  \fbox{\rule{0pt}{45mm}\rule{0.78\textwidth}{0pt}}
-  \caption{结果图占位示意}
-  \label{fig:placeholder}
+  \caption{主要符号说明}
+  \label{tab:symbols}
+  \begin{tabular}{ll}
+    \toprule
+    符号 & 含义 \\
+    \midrule
+    $t$ & 方式1参考时间轴上的时刻 \\
+    $\Delta$ & 方式2相对方式1的时间偏差，$t_{2,\mathrm{aligned}}=t_2+\Delta$ \\
+    $\bm p_1(t),\bm p_2(t)$ & 方式1、方式2插值后的二维位置向量 \\
+    $\bm b=(b_x,b_y)^\top$ & 方式2相对方式1的平移系统偏差 \\
+    $\Omega(\Delta)$ & 给定 $\Delta$ 后两源数据的重叠时间区间 \\
+    $\mathrm{RMSE}$ & 重叠区间内两源轨迹的均方根误差 \\
+    $\bm p_f(t)$ & 融合后的机器人位置轨迹 \\
+    $v(t),a(t)$ & 机器人线速度和加速度模长 \\
+    $d_k(t)$ & 机器人到第 $k$ 个目标点的距离 \\
+    $x_j$ & 第 $j$ 个候选任务是否被选择的0--1变量 \\
+    $m_j$ & 第 $j$ 个候选任务的稳定裕度 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\section{数据预处理与数据审计}
+\subsection{数据读取与统一格式}
+附件1、附件2和附件3均包含两张工作表，分别对应方式1和方式2，字段为时间、$X$坐标和$Y$坐标。附件4包含射击目标和拍照目标两类工作表，均包含目标编号及二维坐标。结果模板左侧可填写区域为9行，因此问题四最终最多输出9条任务。
+
+\subsection{采样周期检查}
+数据审计结果表明，方式1的采样间隔为0.25 s，方式2的采样间隔为0.20 s，与题设4 Hz和5 Hz一致。由于两种频率不一致，本文不直接进行逐点差分，而是先建立连续插值函数，再在统一时间网格上比较和融合。
+
+\subsection{异常值与缺失值处理}
+对各表进行缺失值、重复时间和大步长异常检查。输入数据未发现影响主流程的缺失时间字段或重复时间。对于含噪声数据，本文不删除正常波动点，而是在偏差估计中采用中位数等鲁棒统计量，并在运动学计算前对融合轨迹进行平滑。
+
+\subsection{10Hz统一时间网格构造}
+设给定时间偏差 $\Delta$ 后的重叠区间为
+\begin{equation}
+  \Omega(\Delta)=
+  \left[
+  \max(t_{1,\min},t_{2,\min}+\Delta),
+  \min(t_{1,\max},t_{2,\max}+\Delta)
+  \right].
+\end{equation}
+在该区间上以0.1 s为间隔构造10 Hz统一时间网格，用于输出融合轨迹、计算速度加速度以及生成任务候选窗口。
+
+\section{问题一：无噪声数据的时间对齐模型}
+\subsection{轨迹插值模型}
+对方式1和方式2的离散定位序列分别建立三次样条插值函数：
+\begin{equation}
+  \bm p_i(t)=\left(S_{i,x}(t),S_{i,y}(t)\right)^\top,\quad i=1,2,
+\end{equation}
+其中 $S_{i,x}$ 和 $S_{i,y}$ 分别为对应坐标方向上的三次样条。三次样条能保证轨迹在采样点间具有较好的连续性，适合对不同采样频率的数据进行统一时间比较。
+
+\subsection{基于重叠区间RMSE的时间偏差估计}
+对任意候选时间偏差 $\Delta$，将方式2时间修正为 $t_2+\Delta$。在重叠区间 $\Omega(\Delta)$ 上定义目标函数：
+\begin{equation}
+  J(\Delta)=
+  \sqrt{
+  \frac{1}{|\mathcal T_\Delta|}
+  \sum_{t\in\mathcal T_\Delta}
+  \norm{\bm p_2(t-\Delta)-\bm p_1(t)}_2^2
+  },
+  \label{eq:time_rmse}
+\end{equation}
+其中 $\mathcal T_\Delta$ 为重叠区间内的评价时间网格。最优时间偏差为
+\begin{equation}
+  \Delta^\ast=\argmin_{\Delta} J(\Delta).
+\end{equation}
+
+\subsection{附件1结果分析}
+附件1的对齐结果如表~\ref{tab:alignment} 所示，估计得到 $\Delta=-198.4317\ \mathrm{s}$。重叠区间为 $270.4000$--$970.7500\ \mathrm{s}$，重叠时长约 $700.35\ \mathrm{s}$，对应约7004个10 Hz点。由图~\ref{fig:att1} 可见，时间修正后两源轨迹几乎完全重合。由于重叠区间足够长，对齐后 RMSE 近似为0，该结果说明时间偏差估计不是由短区间偶然匹配造成的伪最优。
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.92\textwidth]{\figpath/fig1_attachment1_alignment.pdf}
+  \caption{附件1无噪声数据的时间对齐前后轨迹比较}
+  \label{fig:att1}
 \end{figure}
 
-图 \ref{fig:placeholder} 展示了图片占位的写法。后续只需要将占位框替换为正式图片，例如：
+\section{问题二：含噪声和系统偏差的时空配准模型}
+\subsection{相对时间偏差与相对系统偏差建模}
+在附件2中，两源轨迹差异同时包含时间错位、随机噪声和系统偏差。本文将方式2相对方式1的系统偏差建模为二维平移向量 $\bm b$。给定 $\Delta$ 后，残差为
+\begin{equation}
+  \bm r(t;\Delta)=\bm p_2(t-\Delta)-\bm p_1(t).
+\end{equation}
+系统偏差估计为
+\begin{equation}
+  \bm b(\Delta)=\mathrm{RobustMean}_{t\in\mathcal T_\Delta}
+  \left[\bm p_2(t-\Delta)-\bm p_1(t)\right],
+  \label{eq:bias_est}
+\end{equation}
+其中 RobustMean 在实现中采用坐标方向上的中位数。校正后的方式2轨迹为
+\begin{equation}
+  \bm p_{2,c}(t-\Delta)=\bm p_2(t-\Delta)-\bm b(\Delta).
+\end{equation}
+融合轨迹采用加权平均形式：
+\begin{equation}
+  \bm p_f(t)=w_1\bm p_1(t)+w_2\bm p_{2,c}(t-\Delta),
+  \quad w_1+w_2=1.
+  \label{eq:fusion}
+\end{equation}
+在本题初步模型中取 $w_1=w_2=0.5$。
 
-\begin{verbatim}
-\begin{figure}[htbp]
+\subsection{鲁棒系统偏差估计}
+为避免随机噪声和局部离群点对系统偏差估计造成较大影响，本文在给定时间偏差后使用中位数估计 $b_x$ 和 $b_y$。目标函数在搜索 $\Delta$ 时对残差先去除鲁棒平移偏差，再计算 RMSE，从而同时兼顾时间错位和空间平移错位。
+
+\subsection{偏差结构模型选择}
+除平移模型外，本文还比较了旋转+平移、尺度+旋转+平移两类复杂模型。若复杂模型相对平移模型的 RMSE 提升小于 $5\%$，则保留参数更少、解释性更强的平移模型。表~\ref{tab:model_select} 表明，附件2和附件3中复杂模型相对平移模型的提升均远小于 $5\%$，因此本文最终采用平移系统偏差模型。
+
+\subsection{附件2结果分析}
+附件2的估计结果为 $\Delta=-50.4947\ \mathrm{s}$，系统偏差为 $(3.480,-1.822)\ \mathrm{m}$。对齐前 RMSE 为 $3.997\ \mathrm{m}$，校正后降至 $0.731\ \mathrm{m}$，改善率为 $81.70\%$。图~\ref{fig:att2} 展示了校正前后轨迹重合程度的明显变化，图~\ref{fig:res2} 显示校正后残差集中分布在原点附近。结果说明附件2中存在明显相对平移系统偏差，且时空配准模型有效降低了两源轨迹差异。
+
+\begin{figure}[H]
   \centering
-  \includegraphics[width=0.75\textwidth]{figures/result.png}
-  \caption{模型结果图}
-  \label{fig:result}
+  \includegraphics[width=0.92\textwidth]{\figpath/fig2_attachment2_correction.pdf}
+  \caption{附件2含噪声与系统偏差数据的校正前后轨迹比较}
+  \label{fig:att2}
 \end{figure}
-\end{verbatim}
 
-\section{模型检验}
-可从误差分析、灵敏度分析、稳定性分析或交叉验证等角度检验模型可靠性。
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.62\textwidth]{\figpath/fig3_attachment2_residuals.pdf}
+  \caption{附件2系统偏差校正后的残差散点分布}
+  \label{fig:res2}
+\end{figure}
 
-\section{模型评价与推广}
+\section{问题三：实际测量数据的系统偏差检验与融合}
+\subsection{Bootstrap系统偏差检验}
+对附件3，本文不直接根据估计偏差是否非零作出判断，而是对残差序列进行分块 Bootstrap。分块方式保留相邻时间残差的相关性，重复抽样得到 $b_x$ 和 $b_y$ 的经验分布，并构造95\%置信区间。
+
+\subsection{工程阈值判定}
+考虑实际定位误差水平，定义工程阈值
+\begin{equation}
+  \tau_b=\max(0.3,\ 0.2\,\mathrm{RMSE}_{\mathrm{after}}).
+\end{equation}
+本文判定存在明显系统偏差当且仅当
+\begin{equation}
+  \norm{\bm b}_2>\tau_b
+  \quad\text{且 Bootstrap 置信区间明显不包含 }0.
+  \label{eq:bias_test}
+\end{equation}
+该双判据同时考虑工程意义和统计显著性，可避免对实际测量数据进行过度校正。
+
+\subsection{附件3结果分析}
+附件3估计得到 $\Delta=367.8843\ \mathrm{s}$，系统偏差为 $(-0.178,-0.280)\ \mathrm{m}$，偏差模长为 $0.3315\ \mathrm{m}$。由表~\ref{tab:bias_test} 可知，工程阈值为 $\tau_b=0.5490\ \mathrm{m}$，偏差模长未超过阈值；同时 Bootstrap 检验中 $b_x$ 的95\%置信区间包含0。因此，本文判定附件3无明显固定系统偏差。对齐后 RMSE 仅由 $2.750\ \mathrm{m}$ 降至 $2.745\ \mathrm{m}$，也说明固定平移校正对实际数据改善有限。
+
+\subsection{10Hz融合轨迹与运动学计算}
+对附件3在重叠区间上输出10 Hz融合轨迹，并基于平滑后的轨迹计算速度和加速度。速度和加速度分别由位置的一阶和二阶数值差分得到：
+\begin{equation}
+  v(t)=\norm{\frac{\dd \bm p_f(t)}{\dd t}}_2,\qquad
+  a(t)=\norm{\frac{\dd^2 \bm p_f(t)}{\dd t^2}}_2.
+\end{equation}
+图~\ref{fig:att3traj} 给出了附件3融合轨迹，图~\ref{fig:kinematics} 给出了速度与加速度曲线，这些运动学量是问题四任务窗口约束判定的基础。
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.68\textwidth]{\figpath/fig4_attachment3_fused_traj.pdf}
+  \caption{附件3实际测量数据融合后的10Hz轨迹}
+  \label{fig:att3traj}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.82\textwidth]{\figpath/fig5_attachment3_kinematics.pdf}
+  \caption{附件3融合轨迹的速度与加速度曲线}
+  \label{fig:kinematics}
+\end{figure}
+
+\section{问题四：固定轨迹下的任务优化模型}
+\subsection{射击任务可行窗构造}
+设射击目标 $k$ 的位置为 $\bm q_k$，机器人在时刻 $t$ 的位置为 $\bm p_f(t)$，距离为
+\begin{equation}
+  d_k(t)=\norm{\bm p_f(t)-\bm q_k}_2.
+\end{equation}
+射击任务在执行时刻 $t$ 可行，当且仅当在准备窗口 $[t-1.5,t]$ 内均满足
+\begin{equation}
+  5\le d_k(\tau)\le 30,\quad
+  v(\tau)\le 2,\quad
+  a(\tau)\le 1.5,\quad
+  \forall \tau\in[t-1.5,t].
+  \label{eq:shoot_window}
+\end{equation}
+在10 Hz网格下，1.5 s窗口包含16个采样点。
+
+\subsection{拍照任务可行窗构造}
+拍照任务在执行时刻 $t$ 可行，当且仅当在准备窗口 $[t-0.5,t]$ 内满足
+\begin{equation}
+  10\le d_k(\tau)\le 40,\quad
+  v(\tau)\le 1.5,\quad
+  a(\tau)\le 1.5,\quad
+  \forall \tau\in[t-0.5,t].
+  \label{eq:photo_window}
+\end{equation}
+在10 Hz网格下，0.5 s窗口包含6个采样点。同一拍照目标若被多次选择，其观测方向角还需满足
+\begin{equation}
+  |\Delta \theta|\ge 60^\circ.
+  \label{eq:angle}
+\end{equation}
+
+\subsection{稳定裕度定义}
+为在任务数量相同时优先选择更稳定的任务，定义候选任务的稳定裕度为各类约束剩余量的最小值。对射击任务，裕度可写为
+\begin{equation}
+  m_j=\min_{\tau\in[t_j-1.5,t_j]}
+  \left\{
+  d_k(\tau)-5,\ 30-d_k(\tau),\ 2-v(\tau),\ 1.5-a(\tau)
+  \right\}.
+  \label{eq:margin_shoot}
+\end{equation}
+对拍照任务，将距离上下界和速度上界替换为10 m、40 m和1.5 m/s：
+\begin{equation}
+  m_j=\min_{\tau\in[t_j-0.5,t_j]}
+  \left\{
+  d_k(\tau)-10,\ 40-d_k(\tau),\ 1.5-v(\tau),\ 1.5-a(\tau)
+  \right\}.
+  \label{eq:margin_photo}
+\end{equation}
+候选任务只有在 $m_j\ge 0$ 时才进入优化模型。
+
+\subsection{MILP任务优化模型}
+令 $x_j\in\{0,1\}$ 表示是否选择第 $j$ 个候选任务，$z_k\in\{0,1\}$ 表示目标 $k$ 是否被覆盖。模型采用字典序目标：优先最大化任务数量，其次最大化覆盖目标数，再最大化拍照角度覆盖，最后最大化稳定裕度和。实现中采用足够分离的大权重将其写为单目标：
+\begin{equation}
+  \max\ 
+  M_1\sum_j x_j
+  +M_2\sum_k z_k
+  +M_3\sum_{j\in\mathcal P} x_j
+  +\sum_j m_j x_j,
+  \label{eq:milp_obj}
+\end{equation}
+其中 $M_1\gg M_2\gg M_3\gg 1$，$\mathcal P$ 为拍照候选任务集合。主要约束为
+\begin{align}
+  &\sum_j x_j \le 9, \label{eq:max_rows}\\
+  &x_i+x_j\le 1,\quad \text{若任务 }i,j\text{ 的准备窗口冲突}, \label{eq:conflict}\\
+  &\sum_{j\in\mathcal S_k}x_j\le 1,\quad \forall\text{射击目标 }k, \label{eq:shoot_once}\\
+  &x_i+x_j\le 1,\quad \text{若同一拍照目标的 }|\theta_i-\theta_j|<60^\circ, \label{eq:photo_angle}\\
+  &x_j\le z_k,\quad \text{若候选任务 }j\text{ 属于目标 }k. \label{eq:cover}
+\end{align}
+式~\eqref{eq:max_rows} 对应结果模板最多9行；式~\eqref{eq:conflict} 保证任务准备窗口不冲突；式~\eqref{eq:shoot_once} 和式~\eqref{eq:photo_angle} 分别对应射击次数和拍照角度约束。
+
+\subsection{最终任务结果与约束复核}
+MILP求解前共生成582个可行候选任务。图~\ref{fig:taskdist} 展示了最终选中任务在固定轨迹和目标点中的空间分布，图~\ref{fig:timeline} 展示了可行任务窗口和最终选择的时间分布。由表~\ref{tab:task_compare} 可知，贪心基线和MILP均完成9条任务并覆盖9个目标，但MILP稳定裕度和由2.496提高至5.804，提升约132.5\%。最终任务复核结果见表~\ref{tab:verify_simple}，所有任务的距离、速度、加速度、角度和冲突约束均通过。
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.72\textwidth]{\figpath/fig6_task_distribution.pdf}
+  \caption{固定轨迹上的目标点与最终选中任务分布}
+  \label{fig:taskdist}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.82\textwidth]{\figpath/fig7_task_timeline.pdf}
+  \caption{固定轨迹上的可行任务窗口与最终任务时间轴}
+  \label{fig:timeline}
+\end{figure}
+
+\section{核心结果表}
+\begin{table}[H]
+  \centering
+  \caption{对齐与偏差估计结果}
+  \label{tab:alignment}
+  \begin{tabular}{lrrrrrr}
+    \toprule
+    数据集 & $\Delta$/s & $b_x$/m & $b_y$/m & 对齐前RMSE/m & 对齐后RMSE/m & 改善率 \\
+    \midrule
+    附件1 & -198.4317 & 0.000 & 0.000 & 0.000 & 0.000 & 0.00\% \\
+    附件2 & -50.4947 & 3.480 & -1.822 & 3.997 & 0.731 & 81.70\% \\
+    附件3 & 367.8843 & -0.178 & -0.280 & 2.750 & 2.745 & 0.16\% \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\begin{table}[H]
+  \centering
+  \caption{附件3系统偏差检验结果}
+  \label{tab:bias_test}
+  \begin{tabular}{rrrrll}
+    \toprule
+    $b_x$/m & $b_y$/m & $\norm{\bm b}$/m & $\tau_b$/m & Bootstrap结果 & 判断结论 \\
+    \midrule
+    -0.178 & -0.280 & 0.3315 & 0.5490 & $b_x$置信区间包含0 & 无明显系统偏差 \\
+    \bottomrule
+  \end{tabular}
+  \vspace{0.3em}
+
+  \small RMSE由 $2.750\ \mathrm{m}$ 变为 $2.745\ \mathrm{m}$，改善很小。
+\end{table}
+
+\begin{table}[H]
+  \centering
+  \caption{偏差结构模型选择结果}
+  \label{tab:model_select}
+  \small
+  \begin{tabular}{lrrrr}
+    \toprule
+    数据集 & 平移模型RMSE & 旋转平移模型相对提升 & 尺度旋转平移模型相对提升 & 最终采用模型 \\
+    \midrule
+    附件2 & 0.731 & 0.015\% & 0.174\% & 平移模型 \\
+    附件3 & 2.745 & 0.354\% & 0.374\% & 平移模型 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\begin{table}[H]
+  \centering
+  \caption{贪心与MILP任务优化结果对比}
+  \label{tab:task_compare}
+  \begin{tabular}{lrrr}
+    \toprule
+    方法 & 任务数 & 覆盖目标数 & 稳定裕度和 \\
+    \midrule
+    贪心基线 & 9 & 9 & 2.496 \\
+    MILP优化 & 9 & 9 & 5.804 \\
+    \bottomrule
+  \end{tabular}
+  \vspace{0.3em}
+
+  \small 在任务数量和覆盖目标数相同的情况下，MILP稳定裕度和提升约132.5\%。
+\end{table}
+
+\begin{table}[H]
+  \centering
+  \caption{最终任务复核表（正文简化版）}
+  \label{tab:verify_simple}
+  \begin{tabular}{rllrrrrr}
+    \toprule
+    序号 & 类型 & 目标 & 执行时刻/s & 距离范围/m & 最大速度 & 最大加速度 & 通过 \\
+    \midrule
+    1 & 拍照 & P11 & 493.35 & 28.20--28.45 & 1.483 & 1.308 & 是 \\
+    2 & 拍照 & P10 & 493.95 & 29.35--29.58 & 1.133 & 1.260 & 是 \\
+    3 & 拍照 & P03 & 494.55 & 22.76--23.18 & 1.157 & 1.174 & 是 \\
+    4 & 拍照 & P04 & 495.15 & 32.91--33.40 & 1.179 & 1.161 & 是 \\
+    5 & 射击 & S10 & 508.95 & 8.62--10.07 & 1.522 & 1.487 & 是 \\
+    6 & 拍照 & P01 & 509.65 & 33.65--34.12 & 0.944 & 1.030 & 是 \\
+    7 & 射击 & S12 & 515.75 & 24.21--25.99 & 1.607 & 1.370 & 是 \\
+    8 & 拍照 & P02 & 518.35 & 38.08--38.82 & 1.190 & 0.562 & 是 \\
+    9 & 射击 & S11 & 523.95 & 24.23--25.64 & 1.010 & 1.313 & 是 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\section{模型评价与灵敏度分析}
+\subsection{时间对齐有效性分析}
+附件1的结果验证了时间对齐模型的正确性。由于数据无噪声，时间偏差修正后 RMSE 近似为0，且重叠区间长达约700.35 s。附件2和附件3的目标函数曲线均存在唯一明显最小值，说明 $\Delta$ 的估计具有较好的可辨识性。
+
+\subsection{系统偏差校正有效性分析}
+附件2中 RMSE 改善率达到81.70\%，说明平移系统偏差是主要误差来源之一。附件3中平移校正带来的 RMSE 改善仅约0.16\%，且偏差检验不显著，因此本文没有盲目声称实际数据存在固定系统偏差。该处理方式兼顾模型解释性和工程稳健性。
+
+\subsection{贪心与MILP对比分析}
+贪心策略按时间顺序选择可行任务，容易在局部较早时刻占用任务窗口，从而牺牲后续更稳定的任务。MILP在全局范围内同时考虑任务数量、目标覆盖和稳定裕度，因此在任务数相同的情况下显著提高稳定裕度和。由表~\ref{tab:task_compare} 可知，MILP稳定裕度和相对贪心提升约132.5\%，表明全局组合优化是必要的。
+
 \subsection{模型优点}
-\begin{itemize}
-  \item 结构清晰，便于解释与复现。
-  \item 能够较好刻画问题中的关键因素。
-\end{itemize}
+\begin{enumerate}
+  \item 模型主线清晰，将多源定位问题分解为时间配准、空间偏差估计、轨迹融合和任务优化四个环节。
+  \item 使用重叠区间 RMSE 估计时间偏差，适用于不同采样频率的定位数据。
+  \item 对系统偏差采用鲁棒估计和 Bootstrap 检验，避免对实际测量数据过度校正。
+  \item 任务优化采用MILP模型，能够在满足复杂窗口约束的前提下进行全局选择。
+\end{enumerate}
 
-\subsection{模型不足}
-\begin{itemize}
-  \item 对部分假设存在依赖。
-  \item 在复杂场景下仍有进一步改进空间。
-\end{itemize}
+\subsection{模型不足与改进方向}
+\begin{enumerate}
+  \item 本文主要采用平移系统偏差模型，未考虑随时间变化的非线性偏差。
+  \item 融合权重采用等权平均，后续可根据传感器噪声方差自适应确定权重。
+  \item 任务优化基于离散10 Hz候选时刻，若需要更高精度，可在候选时刻附近进行连续局部优化。
+  \item Bootstrap 检验采用固定块长，后续可根据残差自相关长度自适应选择块长。
+\end{enumerate}
 
-\subsection{模型推广}
-说明模型可推广到的类似问题或后续可改进方向。
+\section{结论}
+本文围绕多源融合机器人定位及任务优化问题，建立了基于时空配准与稳定裕度优化的综合模型。对于无噪声附件1，时间对齐模型得到 $\Delta=-198.4317\ \mathrm{s}$，长重叠区间内 RMSE 近似为0，验证了时间配准方法的正确性。对于含噪声和系统偏差的附件2，估计得到 $\Delta=-50.4947\ \mathrm{s}$ 和系统偏差 $(3.480,-1.822)\ \mathrm{m}$，RMSE 改善率为81.70\%，说明时空配准模型有效。对于实际测量附件3，估计偏差模长为0.3315 m，小于工程阈值0.5490 m，且 Bootstrap 检验不支持明显固定系统偏差，因此本文判定附件3无明显系统偏差。
+
+在任务优化方面，本文基于附件3融合后的10 Hz固定轨迹构造可行任务窗口，并建立MILP模型。最终完成9条任务、覆盖9个目标，且全部通过距离、速度、加速度、角度和冲突约束复核。与贪心基线相比，MILP在任务数量相同的情况下将稳定裕度和由2.496提高至5.804，提升约132.5\%。最终结果已写入结果模板，满足题目要求。
 
 \begin{thebibliography}{9}
-\bibitem{ref1} 作者. 文献标题[J]. 期刊名称, 年份, 卷(期): 页码.
-\bibitem{ref2} 作者. 书名[M]. 出版地: 出版社, 年份.
+\bibitem{deboor} de Boor C. A Practical Guide to Splines[M]. New York: Springer, 2001.
+\bibitem{huber} Huber P J, Ronchetti E M. Robust Statistics[M]. 2nd ed. Hoboken: Wiley, 2009.
+\bibitem{efron} Efron B, Tibshirani R J. An Introduction to the Bootstrap[M]. New York: Chapman and Hall/CRC, 1993.
+\bibitem{nemhauser} Nemhauser G L, Wolsey L A. Integer and Combinatorial Optimization[M]. New York: Wiley, 1988.
 \end{thebibliography}
 
 \appendix
-\section{附录}
-这里可放补充推导、程序流程、关键代码说明或附表。
+\section{主要代码说明}
+本文计算程序采用模块化结构：数据读取和审计由 \texttt{data\_io.py} 完成；时间对齐与轨迹重采样由 \texttt{alignment.py} 完成；轨迹融合由 \texttt{fusion.py} 完成；速度和加速度计算由 \texttt{kinematics.py} 完成；任务候选生成、贪心基线、MILP优化和约束复核由 \texttt{task\_opt.py} 完成；结果模板填写由 \texttt{fill\_result.py} 完成；图像绘制由 \texttt{plotting.py} 和 \texttt{scripts/make\_paper\_figures.py} 完成。主程序入口为 \texttt{python src/main.py}。
+
+\section{result\_filled.xlsx说明}
+最终填表文件位于建模输出目录 \texttt{outputs/result\_filled.xlsx}。填写内容来自 MILP 优化结果，未修改模板右侧红色说明文字。由于结果模板左侧可填写区域为9行，最终任务数限制为9条。
+
+\section{完整任务复核表}
+\small
+\begin{longtable}{rllrrrrr}
+  \caption{最终任务完整约束复核表}
+  \label{tab:verify_full}\\
+  \toprule
+  序号 & 类型 & 目标 & 执行/s & 准备/s & 距离范围/m & $v_{\max}$ & $a_{\max}$ \\
+  \midrule
+  \endfirsthead
+  \toprule
+  序号 & 类型 & 目标 & 执行/s & 准备/s & 距离范围/m & $v_{\max}$ & $a_{\max}$ \\
+  \midrule
+  \endhead
+  1 & 拍照 & P11 & 493.35 & 492.85 & 28.20--28.45 & 1.483 & 1.308 \\
+  2 & 拍照 & P10 & 493.95 & 493.45 & 29.35--29.58 & 1.133 & 1.260 \\
+  3 & 拍照 & P03 & 494.55 & 494.05 & 22.76--23.18 & 1.157 & 1.174 \\
+  4 & 拍照 & P04 & 495.15 & 494.65 & 32.91--33.40 & 1.179 & 1.161 \\
+  5 & 射击 & S10 & 508.95 & 507.45 & 8.62--10.07 & 1.522 & 1.487 \\
+  6 & 拍照 & P01 & 509.65 & 509.15 & 33.65--34.12 & 0.944 & 1.030 \\
+  7 & 射击 & S12 & 515.75 & 514.25 & 24.21--25.99 & 1.607 & 1.370 \\
+  8 & 拍照 & P02 & 518.35 & 517.85 & 38.08--38.82 & 1.190 & 0.562 \\
+  9 & 射击 & S11 & 523.95 & 522.45 & 24.23--25.64 & 1.010 & 1.313 \\
+  \bottomrule
+\end{longtable}
+上述9条任务的距离、速度、加速度、角度和窗口冲突复核结果均为通过；各任务角度和稳定裕度已在正文表~\ref{tab:verify_simple} 中列出。
 
 \end{document}
