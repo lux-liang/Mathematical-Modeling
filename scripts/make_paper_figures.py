@@ -671,6 +671,12 @@ def main() -> None:
     plot_smoothing_audit()
     plot_task_feasibility_heatmap()
     plot_candidate_heatmap_refined()
+    try:
+        from make_quality_figures import main as make_quality_figures
+
+        make_quality_figures()
+    except Exception as exc:
+        print(f"quality figure generation skipped: {exc}")
     print(f"paper figures written to {OUT}")
 
 

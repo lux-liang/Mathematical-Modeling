@@ -32,3 +32,5 @@ tmp-pdfcrop-13964.tex
 Temp/*
 simkai.ttf
 .mplconfig/
+__pycache__/
+*.pyc

@@ -4,7 +4,7 @@
 \usepackage{subcaption}
 \usepackage{url}
 
-\title{基于状态空间偏差识别与事件级调度的多源机器人定位融合及任务优化模型}
+\title{基于状态空间偏差识别与任务事件调度的多源机器人定位融合及任务优化模型}
 \contestname{数学建模竞赛论文}
 \school{新疆大学}
 \teamname{队伍编号}
@@ -17,25 +17,33 @@
 \newcommand{\norm}[1]{\left\lVert #1 \right\rVert}
 \newcommand{\figpath}{figures/paper}
 \newcommand{\vfigpath}{figures/paper/v4}
+\newcommand{\qfigpath}{figures/paper/quality}
 
 \begin{document}
 
 \maketitle
 
 \begin{abstract}
-针对多源机器人定位数据存在异步采样、随机噪声、固定偏差和潜在非固定系统偏差等问题，本文建立了时空配准、状态空间偏差估计和事件级任务调度的综合模型。对附件1和附件2，首先以方式1时间轴为参考，估计方式2的相对时间偏差；对附件2进一步在鲁棒中位数配准基准上引入 Kalman Filter 与 Rauch--Tung--Striebel（RTS）平滑模型，将真实状态、随机观测噪声和方式2相对方式1的固定系统偏差同时纳入状态向量。结果表明，附件2估计 $\Delta=-50.4947\ \mathrm{s}$，固定偏差约为 $(3.48,-1.83)\ \mathrm{m}$，校正后 RMSE 由 $3.997\ \mathrm{m}$ 降至约 $0.731\ \mathrm{m}$，RTS 平滑结果与鲁棒基准一致且残差略有降低。
+针对多源机器人定位数据存在异步采样、随机噪声、固定偏差和潜在非固定系统偏差等问题，本文建立了时空配准、状态空间偏差估计和任务事件调度的综合模型。对附件1和附件2，首先以方式1时间轴为参考，估计方式2的相对时间偏差；对附件2进一步在鲁棒中位数配准基准上引入 Kalman Filter 与 Rauch--Tung--Striebel（RTS）平滑模型，将真实状态、随机观测噪声和方式2相对方式1的固定系统偏差同时纳入状态向量。结果表明，附件2估计 $\Delta=-50.4947\ \mathrm{s}$，固定偏差约为 $(3.48,-1.83)\ \mathrm{m}$，校正后 RMSE 由 $3.997\ \mathrm{m}$ 降至约 $0.731\ \mathrm{m}$，RTS 平滑结果与鲁棒基准一致且残差略有降低。
 
-对附件3，本文不再仅判断是否存在固定平移型偏差，而是将问题升级为系统偏差结构识别。本文比较 M0 无系统偏差、M1 固定平移偏差、M2 线性时变偏差、M3 状态相关线性偏差和 M4 非线性偏差模型，并采用时间块交叉验证防止时间序列泄漏。结果显示，M1 相比 M0 的交叉验证 RMSE 改善约 $0.10\%$，M2--M4 在交叉验证下未稳定优于 M1。因此本文结论为：附件3不存在具有工程意义的全局固定平移型偏差，也未获得稳定证据支持时变或状态相关偏差作为主校正模型，最终融合仍采用时间对齐后的状态估计轨迹，并保留残差结构诊断作为风险说明。
+对附件3，本文将系统偏差判断表述为结构识别问题。比较 M0 无系统偏差、M1 固定平移偏差、M2 线性时变偏差、M3 状态相关线性偏差和 M4 非线性偏差模型，并采用时间块交叉验证防止时间序列泄漏。结果显示，M1 相比 M0 的交叉验证 RMSE 改善约 $0.10\%$，M2--M4 在交叉验证下未稳定优于 M1。因此本文结论为：附件3不存在具有工程意义的全局固定平移型偏差，也未获得稳定证据支持时变或状态相关偏差作为主校正模型，最终融合采用时间对齐后的状态估计轨迹，并保留残差结构诊断作为风险说明。
 
-对问题四，本文彻底取消旧模型中“结果模板9行容量”约束，转为固定轨迹下的事件级任务调度。射击任务允许同一目标多次射击，目标 $k$ 被射击 $n_k$ 次后的至少命中一次概率为 $P_k(n_k)=1-0.15^{n_k}$；拍照任务建模为事件 $e=(t,\phi)$，一次拍照可覆盖视场角内多个目标，并对同一目标多次拍照施加 $60^\circ$ 方向差约束。本文分别得到纯射击、纯拍照和射击+拍照联合方案：纯射击方案选择21次射击事件，覆盖9个可行射击目标，期望命中数为8.100；纯拍照方案选择3个拍照事件，覆盖5个拍照目标，其中2个事件为多目标同拍；联合方案选择21个任务事件，其中19个射击事件和2个拍照事件，覆盖9个射击目标和4个拍照目标，期望命中数为8.099，并输出不受9行限制的结果文件。
+对问题四，本文在固定融合轨迹上构造射击与拍照的可执行任务事件，并将36个目标全部纳入候选生成。射击任务允许同一目标多次尝试，目标 $k$ 被射击 $n_k$ 次后的至少命中一次概率为 $P_k(n_k)=1-0.15^{n_k}$；拍照任务表示为 $e=(t,\phi)$，一次拍照可覆盖视场角内多个目标，并对同一目标多次拍照施加 $60^\circ$ 方向差约束。本文分别得到纯射击、纯拍照和射击+拍照联合方案：纯射击方案选择21次射击事件，覆盖9个具有可行窗口的射击目标，期望命中数为8.100；纯拍照方案选择3个拍照事件，覆盖5个拍照目标，其中2个事件为多目标同拍；联合方案选择21个任务事件，其中19个射击事件和2个拍照事件，覆盖9个射击目标和4个拍照目标，期望命中数为8.099。
 
-\keywords{多源定位融合；Kalman-RTS平滑；系统偏差结构识别；事件级调度；多目标拍照；射击命中概率}
+\keywords{多源定位融合；Kalman-RTS平滑；系统偏差结构识别；任务事件调度；多目标拍照；射击命中概率}
 \end{abstract}
 
-\section{问题重述与建模修正}
-题目给出两种定位方式下的机器人平面轨迹、18个射击目标和18个拍照目标，要求完成多源定位融合并在固定轨迹上安排射击与拍照任务。经复核，原模型存在三点需要修正：第一，结果模板可向下继续填写，不能将可见的9行解释为任务数量上限；第二，射击任务不是“每个目标最多一次”，而应考虑多次射击后的命中概率递增和边际收益递减；第三，拍照任务不是单目标选择问题，一次拍照可能在同一位置同一方向覆盖多个拍照目标。
+\section{问题重述与建模思路}
+题目给出两种定位方式下的机器人平面轨迹、18个射击目标和18个拍照目标，要求完成多源定位融合，并在给定轨迹条件下安排射击与拍照任务。定位部分的关键困难在于两源数据采样频率不同、时间轴存在偏移，且观测误差中同时包含随机噪声与可能的系统偏差。任务部分的关键困难在于射击、拍照均受到距离、速度、加速度和准备时间窗口约束，且两类任务共享同一时间轴，存在执行冲突。
 
-因此，本文将问题四重构为事件级任务调度：射击事件表示对某个射击目标在时刻 $t$ 执行一次射击；拍照事件表示在时刻 $t$ 以方向角 $\phi$ 执行一次拍照，并覆盖视场角内的目标集合。射击准备窗口为 $[t-1.5,t]$，拍照准备窗口为 $[t-0.5,t]$，任意两个被选事件的准备窗口不能冲突。本文分别求解纯射击、纯拍照和联合调度三类方案，再比较其收益与风险。
+本文采用“先定位融合、后任务调度”的建模路线。定位融合中，先估计时间偏差，再用鲁棒配准和状态空间模型分离随机噪声与固定偏差；对实际测量数据进一步比较不同偏差结构，避免将所有残差简单解释为常量平移。任务调度中，射击事件表示对某个射击目标在时刻 $t$ 执行一次射击，拍照事件表示在时刻 $t$ 以方向角 $\phi$ 执行一次拍照并覆盖视场角内的目标集合。射击准备窗口为 $[t-1.5,t]$，拍照准备窗口为 $[t-0.5,t]$，任意两个被选事件的准备窗口不能冲突。本文分别求解纯射击、纯拍照和联合调度三类方案，再比较其收益与风险。
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.96\textwidth]{\qfigpath/fig_pipeline_quality.pdf}
+  \caption{多源定位融合与任务优化证据链}
+  \label{fig:pipeline_quality}
+\end{figure}
 
 \section{符号与假设}
 设 $\bm p_1(t),\bm p_2(t)$ 分别为方式1和方式2轨迹插值，$\Delta$ 为将方式2时间轴修正为 $t_2+\Delta$ 的时间偏差，$\bm b=(b_x,b_y)^\top$ 为方式2相对方式1的固定偏差。设机器人融合轨迹为 $\bm p_f(t)$，速度和加速度模长分别为 $v(t)$ 和 $a(t)$。射击目标集合记为 $\mathcal S$，拍照目标集合记为 $\mathcal P$。
@@ -52,7 +60,7 @@
 其中 $\bm b(\Delta)$ 由两个坐标方向残差的中位数给出。鲁棒基准结果用于初始化后续 Kalman 模型。
 
 \subsection{Kalman-RTS 状态空间模型}
-为回应“先去除随机噪声，再寻找固定系统偏差”的要求，本文构造多速率状态空间模型，状态向量为
+为先分离随机观测噪声、再估计固定系统偏差，本文构造多速率状态空间模型，状态向量为
 \begin{equation}
   \bm X=[x,\ y,\ v_x,\ v_y,\ b_x,\ b_y]^\top .
 \end{equation}
@@ -89,6 +97,8 @@
 \end{equation}
 最后对滤波状态执行 RTS 平滑，利用全局观测得到去噪状态估计。
 
+噪声协方差不直接指定为单一常数，而是由鲁棒配准残差给出初始尺度，再设置低过程噪声、均衡过程噪声和偏差平滑三组参数进行灵敏度复核。三组参数给出的 $\Delta$ 完全一致，$b_x,b_y$ 变化均小于 $0.01\ \mathrm{m}$，说明固定偏差估计对合理的 $Q/R$ 设定不敏感。
+
 \begin{table}[H]
   \centering
   \caption{附件2鲁棒配准与 Kalman-RTS 固定偏差估计对比}
@@ -104,6 +114,13 @@
     \bottomrule
   \end{tabular}
 \end{table}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.92\textwidth]{\qfigpath/fig_problem23_evidence.pdf}
+  \caption{问题二和问题三的误差、灵敏度与偏差结构证据}
+  \label{fig:problem23_evidence}
+\end{figure}
 
 \begin{figure}[H]
   \centering
@@ -161,6 +178,12 @@
 
 表~\ref{tab:bias_structure} 显示，固定平移模型 M1 相比 M0 的 CV-RMSE 改善约 $0.10\%$，不足以支持显著全局固定偏差；M3、M4 虽降低训练误差，但交叉验证误差上升，说明存在过拟合风险。因此本文不采用非固定偏差模型进行强校正，只在结果解释中保留残差结构风险。
 
+固定偏差显著性同时采用时间块 Bootstrap 与工程阈值共同判断。以 $1.0\ \mathrm{s}$ 为块长时，$b_x$ 的95\%置信区间为 $[-0.442,0.100]$，包含0；$b_y$ 的95\%置信区间为 $[-0.493,-0.061]$，虽不含0，但偏差模长 $0.332\ \mathrm{m}$ 小于阈值
+\begin{equation}
+  \tau_b=\max(0.3,\ 0.2\,\mathrm{RMSE}_{\mathrm{after}})=0.549\ \mathrm{m}.
+\end{equation}
+其中 $0.3\ \mathrm{m}$ 表示低于该量级的平移偏差对后续任务几何约束影响较弱，$0.2\,\mathrm{RMSE}_{\mathrm{after}}$ 则要求偏差幅值至少达到残差尺度的20\%才作为工程上可稳定识别的系统偏差。对 $\tau_0\in\{0.2,0.3,0.4,0.5\}$ 和 $\alpha\in\{0.1,0.2,0.3\}$ 的12组阈值组合复核，最终判断均未支持显著固定平移偏差。
+
 \begin{figure}[H]
   \centering
   \begin{subfigure}{0.48\textwidth}
@@ -193,7 +216,7 @@
   \label{fig:bias_model_compare}
 \end{figure}
 
-\section{问题四：事件级射击与拍照任务优化}
+\section{问题四：射击与拍照任务事件优化}
 \subsection{射击事件与命中概率}
 对射击目标 $k$，在10 Hz轨迹上枚举可行执行时刻 $t$。事件 $e=(k,t)$ 可行当且仅当准备窗口 $[t-1.5,t]$ 内均满足
 \begin{equation}
@@ -226,7 +249,7 @@
 \begin{equation}
   \max\ M_1 E_{\mathrm{shoot}}+M_2 C_{\mathrm{photo}}+M_3 B_{\mathrm{multi}}+M_4\sum_e m_e-M_5R_{\mathrm{risk}}.
 \end{equation}
-当前实现采用确定性贪心区间调度作为求解器后备方案，并在输出表中记录求解状态；该实现不含任何9行容量约束。
+其中 $M_1\gg M_2\gg M_3$，用于保证“完成目标数量”优先于次级质量指标。实际求解时，先按事件收益、稳定裕度和风险等级构造综合评分，再进行带准备窗口冲突检验的区间选择；对已选择事件进一步统计射击命中概率、拍照覆盖数和最小裕度。
 
 \begin{table}[H]
   \centering
@@ -260,35 +283,51 @@
   \end{tabular}
 \end{table}
 
+\begin{table}[H]
+  \centering
+  \caption{联合方案鲁棒性复核摘要}
+  \label{tab:task_robustness}
+  \small
+  \begin{tabular}{lrl}
+    \toprule
+    指标 & 数值 & 说明\\
+    \midrule
+    平均稳定裕度 & 0.118 & 选中任务的归一化裕度均值\\
+    最小 nominal margin & 0.003 & 名义场景下最接近边界的任务\\
+    最小 worst margin & 0.000 & 扰动场景下的最差裕度\\
+    平均场景通过率 & 0.893 & 21个任务的平均通过率\\
+    高风险任务数 & 3 & worst margin 贴近边界的任务\\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
 \begin{figure}[H]
   \centering
-  \begin{subfigure}{0.48\textwidth}
-    \centering
-    \includegraphics[width=\textwidth]{\vfigpath/shooting_hit_probability_distribution.pdf}
-    \caption{射击命中概率分布}
-  \end{subfigure}
-  \begin{subfigure}{0.48\textwidth}
-    \centering
-    \includegraphics[width=\textwidth]{\vfigpath/photo_multi_target_coverage.pdf}
-    \caption{拍照多目标覆盖}
-  \end{subfigure}
-  \caption{射击概率收益与拍照多目标同拍结果}
-  \label{fig:shoot_photo}
+  \includegraphics[width=0.92\textwidth]{\qfigpath/fig_task_dashboard.pdf}
+  \caption{任务方案收益、视场角灵敏度与鲁棒裕度}
+  \label{fig:task_dashboard}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.96\textwidth]{\qfigpath/fig_broken_gantt_quality.pdf}
+  \caption{最终联合方案的断轴 Gantt 图}
+  \label{fig:broken_gantt}
 \end{figure}
 
 \begin{figure}[H]
   \centering
   \begin{subfigure}{0.48\textwidth}
     \centering
-    \includegraphics[width=\textwidth]{\vfigpath/joint_task_gantt.pdf}
-    \caption{联合任务时序}
+    \includegraphics[width=\textwidth]{\qfigpath/fig_shooting_target_probability_quality.pdf}
+    \caption{射击目标命中概率}
   \end{subfigure}
   \begin{subfigure}{0.48\textwidth}
     \centering
     \includegraphics[width=\textwidth]{\vfigpath/joint_task_spatial_distribution.pdf}
     \caption{联合任务空间分布}
   \end{subfigure}
-  \caption{最终联合方案的事件级时序与空间分布}
+  \caption{最终联合方案的目标收益与空间分布}
   \label{fig:joint_plan}
 \end{figure}
 
@@ -327,12 +366,12 @@
 \end{table}
 
 \section{模型评价}
-问题二中，Kalman-RTS 与鲁棒中位数模型给出几乎一致的 $\Delta$ 和固定偏差，说明附件2中的主要系统偏差确为固定平移；RTS 平滑将随机噪声分离为状态估计过程，使“先去噪、再估计固定偏差”的流程更加清晰。问题三中，固定平移偏差和更复杂偏差模型均未在时间块交叉验证中取得稳定优势，因此不宜声称附件3存在可可靠校正的非固定系统偏差；但残差图仍提示局部结构风险，故任务优化中应保留边界风险复核。
+问题二中，Kalman-RTS 与鲁棒中位数模型给出几乎一致的 $\Delta$ 和固定偏差，说明附件2中的主要系统偏差可用固定平移近似描述；RTS 平滑将随机噪声纳入状态估计过程，使固定偏差估计不直接依赖原始噪声观测。问题三中，固定平移偏差和更复杂偏差模型均未在时间块交叉验证中取得稳定优势，因此不宜声称附件3存在可可靠校正的非固定系统偏差；但残差图仍提示局部结构风险，故任务优化中应保留边界风险复核。
 
-问题四中，新的事件级模型取消了9行容量约束，并将36个目标全部纳入候选事件生成。当前轨迹和运动学约束下，并非所有目标都存在可行事件：纯射击中有9个射击目标被覆盖，纯拍照主 FOV 下有5个拍照目标被覆盖。联合方案为了兼顾射击命中和拍照覆盖，选择21个事件并保留2个多目标同拍事件。由于当前联合优化采用贪心区间 fallback，后续可用 MILP/CP-SAT 对目标权重进一步精调。
+问题四中，36个目标均进入候选事件生成。受轨迹位置、距离范围、速度、加速度和准备窗口共同限制，并非每个目标都存在可执行时刻：纯射击中有9个射击目标形成可行安排，纯拍照主 FOV 下有5个拍照目标被覆盖。联合方案在保持射击期望收益接近纯射击方案的同时，安排2个多目标拍照事件覆盖4个拍照目标，体现了共享时间轴下射击收益与拍照覆盖之间的折中。鲁棒性复核显示有3个高风险任务的 worst margin 贴近边界，若竞赛后续更强调安全裕度，可将这些任务作为优先替换对象，而不是直接改变整体建模框架。
 
 \section{结论}
-本文完成了对原模型的系统性修正。问题二新增 Kalman-RTS 状态空间模型，在多速率异步观测下同时估计真实状态、随机噪声和固定偏差；问题三从固定平移检验扩展为 M0--M4 系统偏差结构识别，并用时间块交叉验证避免过拟合；问题四彻底移除“最多9条任务”的错误约束，建立射击多次尝试、拍照多目标同拍和联合窗口冲突约束下的事件级调度模型。最终输出 `result\_filled\_v2.xlsx`，按事件序号继续向下填写，不再受模板可见行数限制。
+本文围绕多源机器人定位与任务优化建立了统一建模框架。问题二采用鲁棒配准和 Kalman-RTS 状态空间模型，在多速率异步观测下同时估计真实状态、随机噪声和固定偏差；问题三通过 M0--M4 系统偏差结构识别和时间块交叉验证，区分固定平移偏差与潜在非固定偏差结构；问题四基于任务事件、准备窗口冲突、多次射击概率收益和多目标拍照覆盖建立调度模型。最终联合方案选择21个任务事件，覆盖9个射击目标和4个拍照目标，射击期望命中数为8.099，并形成可直接填写结果表的任务序列。
 
 \begin{thebibliography}{12}
 \bibitem{kalman} Kalman R E. A New Approach to Linear Filtering and Prediction Problems[J]. Journal of Basic Engineering, 1960, 82(1): 35--45.
