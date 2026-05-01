@@ -43,19 +43,20 @@ def setup() -> None:
     mpl.rcParams.update(
         {
             "font.family": "sans-serif",
-            "font.sans-serif": [zh_font, "DejaVu Sans"],
+            "font.sans-serif": [zh_font],
             "axes.unicode_minus": False,
-            "font.size": 9.5,
-            "axes.labelsize": 9.5,
-            "axes.titlesize": 10.5,
-            "legend.fontsize": 8.2,
-            "xtick.labelsize": 8.5,
-            "ytick.labelsize": 8.5,
+            "font.size": 10.5,
+            "axes.labelsize": 10.5,
+            "axes.titlesize": 11.5,
+            "legend.fontsize": 9.2,
+            "xtick.labelsize": 9.2,
+            "ytick.labelsize": 9.2,
             "axes.linewidth": 0.75,
             "lines.linewidth": 1.35,
             "figure.dpi": 160,
             "savefig.dpi": 320,
             "savefig.bbox": "tight",
+            "pdf.use14corefonts": False,
             "pdf.fonttype": 42,
             "ps.fonttype": 42,
         }
@@ -66,6 +67,16 @@ def save(path: Path) -> None:
     plt.tight_layout(pad=0.7)
     plt.savefig(path)
     plt.close()
+
+
+def save_both(fig: plt.Figure, stem: str, dpi: int = 360) -> None:
+    for suffix in [".pdf", ".png"]:
+        path = OUT / "v4" / f"{stem}{suffix}"
+        kwargs = {"bbox_inches": "tight", "pad_inches": 0.04}
+        if suffix == ".png":
+            kwargs["dpi"] = dpi
+        fig.savefig(path, **kwargs)
+    plt.close(fig)
 
 
 def copy_v4_figures() -> None:
@@ -214,6 +225,123 @@ def plot_risk_tradeoff_clean() -> None:
             kwargs["dpi"] = 360
         fig.savefig(path, **kwargs)
     plt.close(fig)
+
+
+def plot_attachment2_clean_v4() -> None:
+    fused = pd.read_csv(B_DIR / "outputs" / "trajectories" / "fused_attachment2_10hz.csv")
+    res = pd.read_csv(B_DIR / "outputs" / "tables" / "attachment2_residuals.csv")
+
+    fig, ax = plt.subplots(figsize=(6.8, 5.1))
+    ax.plot(fused["x1_aligned"], fused["y1_aligned"], color=BLUE, label="定位方式1", alpha=0.95)
+    ax.plot(fused["x2_aligned_corrected"], fused["y2_aligned_corrected"], color=ORANGE, linestyle=(0, (4, 2)), label="方式2鲁棒校正")
+    ax.plot(fused[X_COL], fused[Y_COL], color=DARK, linewidth=1.15, label="10 Hz 融合轨迹")
+    ax.scatter(fused[X_COL].iloc[0], fused[Y_COL].iloc[0], s=42, color=TEAL, zorder=5, label="起点")
+    ax.scatter(fused[X_COL].iloc[-1], fused[Y_COL].iloc[-1], s=42, color=RED, zorder=5, label="终点")
+    ax.set_xlabel("X 坐标 / m")
+    ax.set_ylabel("Y 坐标 / m")
+    ax.set_title("附件2时空配准与融合轨迹")
+    style_axis(ax, equal=True)
+    ax.legend(frameon=False, loc="best")
+    save_both(fig, "attachment2_trajectory_kalman_rts")
+
+    fig, axes = plt.subplots(1, 2, figsize=(9.2, 4.0))
+    before = np.sqrt(res["residual_x_before"] ** 2 + res["residual_y_before"] ** 2)
+    after = np.sqrt(res["residual_x_after"] ** 2 + res["residual_y_after"] ** 2)
+    axes[0].boxplot([before, after], tick_labels=["校正前", "校正后"], patch_artist=True, boxprops={"facecolor": "#DCE9F6", "color": BLUE}, medianprops={"color": RED})
+    axes[0].set_ylabel("残差范数 / m")
+    axes[0].set_title("(a) 残差范数对比")
+    sample = res.sample(min(1600, len(res)), random_state=7)
+    axes[1].scatter(sample["residual_x_after"], sample["residual_y_after"], s=7, color=BLUE, alpha=0.35, edgecolors="none")
+    axes[1].axhline(0, color=GRAY, linewidth=0.9)
+    axes[1].axvline(0, color=GRAY, linewidth=0.9)
+    axes[1].set_xlabel("X 残差 / m")
+    axes[1].set_ylabel("Y 残差 / m")
+    axes[1].set_title("(b) 校正后残差散点")
+    for ax in axes:
+        style_axis(ax)
+    save_both(fig, "attachment2_residual_distribution_compare")
+
+
+def plot_attachment3_clean_v4() -> None:
+    feat = pd.read_csv(B_DIR / "outputs" / "tables" / "attachment3_residual_feature_frame.csv")
+    comp = pd.read_csv(B_DIR / "outputs" / "tables" / "attachment3_bias_structure_comparison.csv")
+
+    fig, ax = plt.subplots(figsize=(8.4, 4.2))
+    t = feat[TIME_COL]
+    rx = feat["residual_x"]
+    ry = feat["residual_y"]
+    win = max(5, int(len(feat) * 0.035))
+    ax.plot(t, rx, color=BLUE, alpha=0.38, linewidth=0.8, label="X 残差")
+    ax.plot(t, ry, color=ORANGE, alpha=0.38, linewidth=0.8, label="Y 残差")
+    ax.plot(t, rx.rolling(win, center=True, min_periods=1).mean(), color=BLUE, linewidth=1.8, label="X 滑动均值")
+    ax.plot(t, ry.rolling(win, center=True, min_periods=1).mean(), color=ORANGE, linewidth=1.8, label="Y 滑动均值")
+    ax.axhline(0, color=GRAY, linewidth=0.8)
+    ax.set_xlabel("时间 / s")
+    ax.set_ylabel("残差 / m")
+    ax.set_title("附件3残差时间趋势")
+    style_axis(ax)
+    ax.legend(frameon=False, ncol=2)
+    save_both(fig, "attachment3_residual_time_trend_clean")
+
+    fig, ax = plt.subplots(figsize=(7.0, 4.2))
+    x = np.arange(len(comp))
+    width = 0.34
+    ax.bar(x - width / 2, comp["train_rmse"], width=width, color=BLUE, alpha=0.86, label="训练 RMSE")
+    ax.bar(x + width / 2, comp["cv_rmse"], width=width, color=ORANGE, alpha=0.86, label="时间块 CV-RMSE")
+    ax.set_xticks(x, comp["model_name"])
+    ax.set_xlabel("偏差结构模型")
+    ax.set_ylabel("RMSE / m")
+    ax.set_title("附件3偏差模型泛化对比")
+    style_axis(ax)
+    ax.legend(frameon=False)
+    save_both(fig, "attachment3_bias_model_cv_compare_clean")
+
+
+def plot_task_spatial_and_gantt_v4() -> None:
+    traj = pd.read_csv(B_DIR / "outputs" / "trajectories" / "fused_attachment3_10hz.csv")
+    targets = read_targets()
+    selected = pd.read_csv(B_DIR / "outputs" / "tables" / "joint_selected_events.csv")
+
+    fig, ax = plt.subplots(figsize=(7.0, 5.2))
+    ax.plot(traj[X_COL], traj[Y_COL], color="#8B929A", linewidth=0.9, alpha=0.72, label="融合轨迹")
+    shoot = targets[targets["task"] == "shooting"]
+    photo = targets[targets["task"] == "photo"]
+    ax.scatter(shoot[X_COL], shoot[Y_COL], s=30, color="#9FC5E8", alpha=0.7, label="射击目标")
+    ax.scatter(photo[X_COL], photo[Y_COL], s=30, color="#F4B183", alpha=0.7, label="拍照目标")
+    exec_pos = traj.set_index(TIME_COL).reindex(selected["execute_time"].to_numpy(float), method="nearest").reset_index()
+    is_photo = selected["event_type"].eq("photo").to_numpy()
+    ax.scatter(exec_pos[X_COL][~is_photo], exec_pos[Y_COL][~is_photo], s=36, marker="o", color=BLUE, edgecolor=DARK, linewidth=0.4, label="射击执行点", zorder=4)
+    ax.scatter(exec_pos[X_COL][is_photo], exec_pos[Y_COL][is_photo], s=58, marker="^", color=ORANGE, edgecolor=DARK, linewidth=0.4, label="拍照执行点", zorder=5)
+    for _, row in selected[selected["event_type"].eq("photo")].iterrows():
+        pos = traj.iloc[(traj[TIME_COL] - float(row["execute_time"])).abs().argmin()]
+        ax.text(pos[X_COL] + 0.6, pos[Y_COL] + 0.6, str(row["covered_targets"]), fontsize=8.0, color=DARK)
+    ax.set_xlabel("X 坐标 / m")
+    ax.set_ylabel("Y 坐标 / m")
+    ax.set_title("联合任务空间分布")
+    style_axis(ax, equal=True)
+    ax.legend(frameon=False, loc="best")
+    save_both(fig, "joint_task_spatial_distribution")
+
+    fig, ax = plt.subplots(figsize=(9.2, 6.2))
+    work = selected.sort_values("execute_time").reset_index(drop=True)
+    y = np.arange(len(work))[::-1]
+    colors = np.where(work["event_type"].eq("photo"), ORANGE, BLUE)
+    labels = work["covered_targets"].astype(str).to_list()
+    for yi, (_, row), color in zip(y, work.iterrows(), colors):
+        ax.barh(yi, row["execute_time"] - row["start_time"], left=row["start_time"], height=0.56, color=color, alpha=0.82, edgecolor=DARK, linewidth=0.5)
+        ax.plot(row["execute_time"], yi, marker="*", color=RED if row["margin"] < 0.03 else DARK, markersize=7.5, zorder=5)
+    ax.set_yticks(y, labels)
+    ax.set_xlabel("时间 / s")
+    ax.set_ylabel("目标编号")
+    ax.set_title("最终任务准备窗口与执行时刻 Gantt 图")
+    ax.legend(handles=[
+        mpl.patches.Patch(facecolor=BLUE, edgecolor=DARK, label="射击准备窗口"),
+        mpl.patches.Patch(facecolor=ORANGE, edgecolor=DARK, label="拍照准备窗口"),
+        mpl.lines.Line2D([0], [0], marker="*", color="w", markerfacecolor=DARK, markeredgecolor=DARK, label="执行时刻"),
+        mpl.lines.Line2D([0], [0], marker="*", color="w", markerfacecolor=RED, markeredgecolor=RED, label="低裕度执行点"),
+    ], frameon=False, ncol=2, loc="lower right")
+    style_axis(ax)
+    save_both(fig, "joint_task_gantt_clean")
 
 
 def plot_pipeline_overview() -> None:
@@ -788,6 +916,9 @@ def main() -> None:
     copy_v4_figures()
     plot_attachment1_split_v4()
     plot_risk_tradeoff_clean()
+    plot_attachment2_clean_v4()
+    plot_attachment3_clean_v4()
+    plot_task_spatial_and_gantt_v4()
     plot_fov_risk_sensitivity()
     plot_pipeline_overview()
     plot_attachment1()

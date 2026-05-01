@@ -33,9 +33,9 @@
 \renewcommand*{\baselinestretch}{1.35}
 \setlength\parindent{2em}
 
-\IfFontExistsTF{Times New Roman}{\setmainfont{Times New Roman}}{\setmainfont{Latin Modern Roman}}
-\IfFontExistsTF{Courier New}{\setmonofont{Courier New}}{\setmonofont{Latin Modern Mono}}
-\IfFontExistsTF{Arial}{\setsansfont{Arial}}{\setsansfont{Latin Modern Sans}}
+\setmainfont{Latin Modern Roman}
+\setmonofont{Latin Modern Mono}
+\setsansfont{Latin Modern Sans}
 
 \renewcommand\normalsize{%
   \@setfontsize\normalsize{12.05}{14.45}%
