@@ -1,0 +1,359 @@
+\documentclass[UTF8,a4paper,12pt]{ctexart}
+
+\usepackage{geometry}
+\usepackage{amsmath,amssymb,bm}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{setspace}
+\usepackage{hyperref}
+
+\geometry{left=2.6cm,right=2.6cm,top=2.5cm,bottom=2.5cm}
+\setstretch{1.25}
+\graphicspath{{outputs/figures/}}
+
+\title{\heiti 多源融合机器人定位及任务优化模型}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+针对多源异构定位数据存在起始时间不同步、采样频率不一致、随机噪声及系统偏差等问题，本文建立了面向机器人连续定位与任务规划的多源融合模型。首先，对于无噪声数据，利用三次样条插值和时间偏移搜索实现两类定位方式的时间对齐，并输出统一的10Hz轨迹。其次，对于含随机噪声和固定系统偏差的数据，建立时间偏移与系统偏差联合估计模型，并结合Kalman滤波生成融合轨迹。再次，对于实际测量数据，先基于时间对齐后的残差进行统计检验，判断是否存在显著系统偏差，再据此决定是否进行偏差补偿。最后，在融合轨迹基础上构造射击和拍照任务候选集，建立整数规划模型，在速度、加速度、距离、准备时间和角度约束下最大化完成任务数量。结果表明，模型能够有效完成多源定位对齐与融合，并最终选择9个可行任务目标。
+\end{abstract}
+
+\noindent\textbf{关键词：} 多源定位融合；时间对齐；系统偏差检验；Kalman滤波；整数规划；任务优化
+
+\section{问题重述}
+机器人在运动过程中同时获得定位方式1和定位方式2两类轨迹数据。定位方式1采样频率为4Hz，定位方式2采样频率为5Hz。由于两类设备存在开机时间差、随机测量噪声和可能的系统偏差，直接融合会造成轨迹错位。题目要求完成以下任务：
+
+\begin{enumerate}
+    \item 对附件1中无噪声数据建立时间对齐模型，给出时间偏差和10Hz位置轨迹；
+    \item 对附件2中含随机噪声和固定系统偏差的数据建立对齐与融合模型，给出时间偏差、系统偏差和10Hz轨迹；
+    \item 对附件3实际测量数据判断是否存在系统偏差，并在此基础上完成对齐、修正和融合；
+    \item 基于附件3轨迹和附件4目标点，优化机器人运动过程中的射击和拍照任务安排。
+\end{enumerate}
+
+\section{模型假设}
+\begin{enumerate}
+    \item 两种定位方式测量的是同一机器人在平面内的二维位置。
+    \item 时间偏差在同一附件数据中保持不变。
+    \item 固定系统偏差若存在，则主要表现为二维平移偏差。
+    \item 随机测量噪声均值近似为0，且在短时间内不改变轨迹整体趋势。
+    \item 机器人任务执行时的速度、加速度和距离约束均以融合轨迹计算结果为准。
+\end{enumerate}
+
+\section{符号说明}
+\begin{table}[H]
+\centering
+\caption{主要符号说明}
+\begin{tabular}{cc}
+\toprule
+符号 & 含义 \\
+\midrule
+$t_1,t_2$ & 定位方式1、方式2的原始时间 \\
+$\tau$ & 方式2相对方式1的时间偏移 \\
+$(x_1,y_1)$ & 定位方式1的位置坐标 \\
+$(x_2,y_2)$ & 定位方式2的位置坐标 \\
+$(b_x,b_y)$ & 方式2相对方式1的固定系统偏差 \\
+$\mathrm{RMSE}$ & 均方根误差 \\
+$v,a$ & 机器人线速度与加速度 \\
+$d$ & 机器人与目标点距离 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{问题一：无噪声数据的时间对齐模型}
+
+\subsection{模型建立}
+附件1中两类数据无噪声，主要问题是设备开机时间不同。设方式2经过时间修正后为
+\[
+t_2' = t_2 + \tau .
+\]
+为了比较两类数据，在公共时间区间内建立三次样条插值函数：
+\[
+x_1(t),y_1(t),x_2(t),y_2(t).
+\]
+定义时间偏移目标函数：
+\[
+J(\tau)=\frac{1}{N}\sum_{k=1}^{N}
+\left[
+\left(x_2(t_k-\tau)-x_1(t_k)\right)^2+
+\left(y_2(t_k-\tau)-y_1(t_k)\right)^2
+\right].
+\]
+通过粗网格搜索与一维优化得到最优时间偏移：
+\[
+\tau^*=\arg\min_{\tau}J(\tau).
+\]
+
+\subsection{结果分析}
+计算得到附件1的最优时间偏移为
+\[
+\tau_1=-198.4317\ \mathrm{s}.
+\]
+对齐后RMSE约为
+\[
+9.06\times10^{-8}\ \mathrm{m},
+\]
+说明两条轨迹在时间修正后几乎完全重合，验证了模型的有效性。
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.78\textwidth]{aligned_附件1.png}
+\caption{附件1时间对齐后的轨迹}
+\end{figure}
+
+\section{问题二：含噪声和固定系统偏差的数据融合模型}
+
+\subsection{联合估计模型}
+附件2中同时存在随机测量噪声和固定系统偏差。设方式2修正模型为
+\[
+t_2'=t_2+\tau,\qquad
+x_2'=x_2-b_x,\qquad
+y_2'=y_2-b_y.
+\]
+建立联合优化目标：
+\[
+\min_{\tau,b_x,b_y}
+\frac{1}{N}\sum_{k=1}^{N}
+\left[
+\left(x_2(t_k-\tau)-b_x-x_1(t_k)\right)^2+
+\left(y_2(t_k-\tau)-b_y-y_1(t_k)\right)^2
+\right].
+\]
+先用粗网格搜索确定时间偏移初值，再采用Nelder--Mead方法联合优化时间偏移和系统偏差。
+
+\subsection{噪声估计与融合}
+在完成时间对齐和系统偏差补偿后，记两类定位方式相对于融合轨迹的残差标准差为$\sigma_1,\sigma_2$。本模型采用Kalman滤波进行10Hz轨迹融合，状态向量为
+\[
+\bm{s}_k=(x_k,y_k,v_{x,k},v_{y,k})^T.
+\]
+状态转移模型为常速度模型：
+\[
+\bm{s}_{k+1}=
+\begin{pmatrix}
+1&0&\Delta t&0\\
+0&1&0&\Delta t\\
+0&0&1&0\\
+0&0&0&1
+\end{pmatrix}\bm{s}_k+\bm{w}_k.
+\]
+
+\subsection{结果分析}
+附件2计算结果如下：
+\[
+\tau_2=-50.1892\ \mathrm{s},
+\quad b_x=3.4750\ \mathrm{m},
+\quad b_y=-1.8300\ \mathrm{m}.
+\]
+噪声标准差估计为
+\[
+\sigma_1=0.5670\ \mathrm{m},\qquad
+\sigma_2=0.5673\ \mathrm{m}.
+\]
+校正前RMSE为$4.2208$m，校正后RMSE为$1.5515$m，说明系统偏差修正显著提高了两类定位数据的一致性。
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.78\textwidth]{aligned_附件2.png}
+\caption{附件2对齐与系统偏差修正后的轨迹}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.58\textwidth]{attachment2_residual_scatter.png}
+\caption{附件2系统偏差修正后的残差散点图}
+\end{figure}
+
+\section{问题三：实际测量数据的系统偏差判断与融合}
+
+\subsection{时间对齐}
+对于附件3实际测量数据，首先仍以方式1为参考，对方式2进行时间偏移搜索。为避免固定偏差影响时间对齐，在每个候选$\tau$下先扣除残差均值，再计算MSE：
+\[
+J(\tau)=\frac{1}{N}\sum_{k=1}^{N}
+\left[
+\left(dx_k-\overline{dx}\right)^2+
+\left(dy_k-\overline{dy}\right)^2
+\right],
+\]
+其中
+\[
+dx_k=x_2(t_k-\tau)-x_1(t_k),\qquad
+dy_k=y_2(t_k-\tau)-y_1(t_k).
+\]
+粗搜索后再使用一维优化精修，得到
+\[
+\tau_3=367.8239\ \mathrm{s}.
+\]
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.75\textwidth]{problem3_tau_mse_curve.png}
+\caption{附件3时间偏移搜索曲线}
+\end{figure}
+
+\subsection{系统偏差统计检验}
+时间对齐后分别对$x$方向和$y$方向残差进行单样本$t$检验。原假设为：
+\[
+H_0:\mu_{dx}=0,\qquad H_0:\mu_{dy}=0.
+\]
+若$p<0.05$或95\%置信区间不包含0，则认为对应方向存在显著系统偏差。
+
+计算结果为：
+\[
+\overline{dx}=-0.1435\ \mathrm{m},\qquad
+\overline{dy}=-0.1459\ \mathrm{m}.
+\]
+残差标准差为：
+\[
+s_{dx}=4.8199\ \mathrm{m},\qquad
+s_{dy}=4.7262\ \mathrm{m}.
+\]
+$t$检验$p$值为：
+\[
+p_x=0.1030,\qquad p_y=0.0910.
+\]
+95\%置信区间为：
+\[
+dx:\ [-0.3161,\ 0.0290],\qquad
+dy:\ [-0.3151,\ 0.0233].
+\]
+由于两个方向$p$值均大于0.05，且置信区间均包含0，因此判断附件3两类定位数据不存在显著固定系统偏差。
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.58\textwidth]{problem3_residual_before_correction.png}
+\caption{附件3时间对齐后修正前残差散点图}
+\end{figure}
+
+\subsection{融合轨迹生成}
+由于附件3不存在显著系统偏差，取
+\[
+b_x=0,\qquad b_y=0.
+\]
+在公共时间区间内生成10Hz时间轴，将方式1和时间对齐后的方式2均插值到该时间轴上，并采用等权融合：
+\[
+x_f(t)=\frac{x_1(t)+x_2(t-\tau)}{2},\qquad
+y_f(t)=\frac{y_1(t)+y_2(t-\tau)}{2}.
+\]
+为降低实际测量噪声影响，对融合轨迹进行轻度Savitzky--Golay平滑，同时保留未平滑轨迹。
+
+校正前RMSE为$6.7525$m；由于不进行系统偏差补偿，校正后RMSE仍为$6.7525$m。这说明附件3误差主要来自随机测量噪声，而非固定系统偏差。
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.78\textwidth]{problem3_fused_10Hz_trajectory.png}
+\caption{附件3最终10Hz融合轨迹}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.78\textwidth]{problem3_residual_time_series.png}
+\caption{附件3残差随时间变化}
+\end{figure}
+
+\section{问题四：任务目标优化模型}
+
+\subsection{候选任务生成}
+根据附件3融合轨迹，计算机器人在每个10Hz时刻与各目标点的距离、速度和加速度。对于射击任务，约束为：
+\[
+5\le d\le 30,\qquad v\le 2.0,\qquad a\le 1.5,
+\]
+且射击前1.5s内均需满足上述约束。对于拍照任务，约束为：
+\[
+10\le d\le 40,\qquad v\le 1.5,\qquad a\le 1.5,
+\]
+且拍照前0.5s内均需满足上述约束。同一拍照目标不同拍摄方向角差至少为$60^\circ$。
+
+\subsection{整数规划模型}
+设候选任务集合为$\mathcal{C}$，决策变量为
+\[
+z_i=
+\begin{cases}
+1,& \text{选择候选任务 } i,\\
+0,& \text{否则}.
+\end{cases}
+\]
+目标函数为最大化任务完成数，并兼顾目标覆盖和稳定裕度：
+\[
+\max \sum_{i\in\mathcal{C}} z_i.
+\]
+约束包括：
+\[
+\sum_{i\in\mathcal{C}}z_i\le 9,
+\]
+\[
+z_i+z_j\le 1,\quad \text{若候选任务 }i,j\text{ 时间窗口冲突},
+\]
+\[
+z_i+z_j\le 1,\quad \text{若同一拍照目标方向角差小于 }60^\circ.
+\]
+对每个候选任务定义稳定裕度：
+\[
+m_i=\min\left\{
+\frac{d-d_{\min}}{d_{\max}-d_{\min}},
+\frac{d_{\max}-d}{d_{\max}-d_{\min}},
+\frac{v_{\max}-v}{v_{\max}},
+\frac{a_{\max}-a}{a_{\max}}
+\right\}.
+\]
+在任务数相同的情况下，优先选择稳定裕度更大的方案。
+
+\subsection{优化结果}
+最终优化选择9个任务，其中拍照任务6个，射击任务3个，覆盖9个不同目标。与贪心方法相比，优化方法稳定裕度总和由$0.822$提高到$1.810$，说明整数规划能够获得更稳健的任务安排。
+
+\begin{longtable}{cccccc}
+\caption{最终任务优化结果}\\
+\toprule
+序号 & 目标编号 & 任务 & 准备时刻(s) & 执行时刻(s) & 稳定裕度 \\
+\midrule
+1 & P10 & 拍照 & 493.35 & 493.85 & 0.160 \\
+2 & P03 & 拍照 & 493.95 & 494.45 & 0.217 \\
+3 & P11 & 拍照 & 494.55 & 495.05 & 0.226 \\
+4 & P04 & 拍照 & 495.15 & 495.65 & 0.061 \\
+5 & P02 & 拍照 & 508.55 & 509.05 & 0.352 \\
+6 & P01 & 拍照 & 509.15 & 509.65 & 0.196 \\
+7 & S10 & 射击 & 509.85 & 511.35 & 0.184 \\
+8 & S11 & 射击 & 515.25 & 516.75 & 0.278 \\
+9 & S12 & 射击 & 762.35 & 763.85 & 0.136 \\
+\bottomrule
+\end{longtable}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.78\textwidth]{selected_tasks_distribution.png}
+\caption{最终任务目标空间分布}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.85\textwidth]{task_window_timeline.png}
+\caption{可行任务窗口与最终选择结果}
+\end{figure}
+
+\section{模型评价}
+
+\subsection{模型优点}
+\begin{enumerate}
+    \item 对不同附件数据采用不同处理策略，区分了时间偏差、固定系统偏差和随机噪声。
+    \item 对附件3没有默认存在系统偏差，而是先通过统计检验判断，避免过度修正。
+    \item 对含噪声数据引入Kalman滤波和平滑方法，提高了轨迹连续性。
+    \item 任务优化部分采用整数规划，能够显式处理时间冲突、目标重复、角度差异和运动学约束。
+\end{enumerate}
+
+\subsection{模型不足}
+\begin{enumerate}
+    \item 系统偏差仅考虑二维平移，未进一步考虑旋转、尺度或非线性偏差。
+    \item 轨迹融合中噪声模型较为简化，未充分建模噪声的时间相关性。
+    \item 任务优化中目标权重相同，未考虑不同目标的重要程度。
+\end{enumerate}
+
+\section{结论}
+本文针对多源机器人定位和任务优化问题，建立了从时间对齐、系统偏差判断、轨迹融合到任务规划的一体化模型。对于附件1，得到方式2相对方式1的时间偏移为$-198.4317$s，对齐后轨迹几乎完全重合。对于附件2，联合估计得到时间偏移$-50.1892$s，系统偏差为$(3.4750,-1.8300)$m，修正后RMSE明显降低。对于附件3，统计检验表明两类实际定位数据不存在显著固定系统偏差，因此仅进行时间对齐和融合。最后，基于附件3融合轨迹建立任务候选集和整数规划模型，最终完成9个任务，满足全部距离、速度、加速度、准备时间和拍照角度约束。
+
+\end{document}
