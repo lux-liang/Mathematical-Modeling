@@ -90,6 +90,7 @@ def copy_v4_figures() -> None:
         "photo_multi_target_coverage.pdf",
         "joint_task_gantt.pdf",
         "joint_task_spatial_distribution.pdf",
+        "joint_risk_tradeoff_curve.pdf",
     ]
     for name in names:
         src = B_DIR / "outputs" / "figures" / name
