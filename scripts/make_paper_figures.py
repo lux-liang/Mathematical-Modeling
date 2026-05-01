@@ -98,6 +98,48 @@ def copy_v4_figures() -> None:
             shutil.copyfile(src, OUT / "v4" / name)
 
 
+def plot_fov_risk_sensitivity() -> None:
+    """Draw compact sensitivity curves for camera FOV and risk-weight tradeoff."""
+
+    fov = pd.read_csv(B_DIR / "outputs" / "tables" / "photo_fov_sensitivity.csv")
+    risk = pd.read_csv(B_DIR / "outputs" / "tables" / "joint_risk_tradeoff_curve.csv")
+    fig, axes = plt.subplots(1, 2, figsize=(9.4, 3.8))
+
+    axes[0].plot(fov["fov_degree"], fov["covered_targets"], marker="o", color=BLUE, label="覆盖拍照目标")
+    axes[0].plot(fov["fov_degree"], fov["total_target_observations"], marker="s", color=TEAL, label="总观测次数")
+    axes[0].plot(fov["fov_degree"], fov["multi_target_events"], marker="^", color=ORANGE, label="多目标同拍事件")
+    axes[0].set_xlabel("视场角 FOV / 度")
+    axes[0].set_ylabel("数量 / 个")
+    axes[0].set_title("(a) FOV 灵敏度")
+    axes[0].set_xticks(fov["fov_degree"])
+    axes[0].legend(frameon=False)
+
+    x = np.arange(len(risk))
+    axes[1].bar(x, risk["combined_target_utility"], color=BLUE, alpha=0.82, label="综合效用")
+    axes[1].set_ylabel("综合效用")
+    axes[1].set_xticks(x, risk["plan_name"].astype(str), rotation=22, ha="right")
+    axes[1].set_title("(b) 风险权重与裕度折中")
+    ax2 = axes[1].twinx()
+    ax2.plot(x, risk["risk_count"], marker="o", color=RED, label="高风险事件数")
+    ax2.plot(x, risk["scenario_pass_rate"], marker="s", color=TEAL, label="场景通过率")
+    ax2.set_ylabel("风险数 / 通过率")
+    ax2.set_ylim(0, max(5.5, float(risk["risk_count"].max()) + 0.5))
+    lines, labels = axes[1].get_legend_handles_labels()
+    lines2, labels2 = ax2.get_legend_handles_labels()
+    axes[1].legend(lines + lines2, labels + labels2, frameon=False, loc="upper right")
+
+    for ax in axes:
+        style_axis(ax)
+    ax2.spines["top"].set_visible(False)
+    ax2.grid(False)
+    for path in [OUT / "v4" / "fov_risk_sensitivity.pdf", OUT / "v4" / "fov_risk_sensitivity.png"]:
+        kwargs = {"bbox_inches": "tight", "pad_inches": 0.04}
+        if path.suffix == ".png":
+            kwargs["dpi"] = 360
+        fig.savefig(path, **kwargs)
+    plt.close(fig)
+
+
 def plot_pipeline_overview() -> None:
     custom_pipeline = ROOT / "框架图.pdf"
     if custom_pipeline.exists():
@@ -668,6 +710,7 @@ def plot_candidate_heatmap_refined() -> None:
 def main() -> None:
     setup()
     copy_v4_figures()
+    plot_fov_risk_sensitivity()
     plot_pipeline_overview()
     plot_attachment1()
     plot_attachment2()
