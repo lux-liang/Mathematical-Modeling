@@ -140,6 +140,82 @@ def plot_fov_risk_sensitivity() -> None:
     plt.close(fig)
 
 
+def plot_attachment1_split_v4() -> None:
+    raw1, raw2 = read_raw(1)
+    fused = pd.read_csv(B_DIR / "outputs" / "trajectories" / "fused_attachment1_10hz.csv")
+    delta = pd.read_csv(B_DIR / "outputs" / "tables" / "delta_objective_attachment1.csv")
+
+    fig, axes = plt.subplots(1, 2, figsize=(9.4, 4.0))
+    axes[0].plot(raw1[X_COL], raw1[Y_COL], color=BLUE, label="定位方式1", alpha=0.95)
+    axes[0].plot(raw2[X_COL], raw2[Y_COL], color=ORANGE, label="定位方式2", alpha=0.75)
+    axes[0].set_title("(a) 时间对齐前")
+    axes[1].plot(fused["x1_aligned"], fused["y1_aligned"], color=BLUE, label="定位方式1")
+    axes[1].plot(fused["x2_aligned_corrected"], fused["y2_aligned_corrected"], color=ORANGE, linestyle=(0, (4, 2)), label="对齐后的定位方式2")
+    axes[1].set_title("(b) 时间对齐后")
+    for ax in axes:
+        ax.set_xlabel("X 坐标 / m")
+        ax.set_ylabel("Y 坐标 / m")
+        style_axis(ax, equal=True)
+        ax.legend(frameon=False)
+    for path in [OUT / "v4" / "attachment1_trajectory_alignment_split.pdf", OUT / "v4" / "attachment1_trajectory_alignment_split.png"]:
+        kwargs = {"bbox_inches": "tight", "pad_inches": 0.04}
+        if path.suffix == ".png":
+            kwargs["dpi"] = 360
+        fig.savefig(path, **kwargs)
+    plt.close(fig)
+
+    fig, axes = plt.subplots(1, 2, figsize=(9.4, 3.9))
+    best = delta.loc[delta["RMSE"].idxmin()]
+    axes[0].plot(delta["Delta"], delta["RMSE"], color=BLUE)
+    axes[0].scatter([best["Delta"]], [best["RMSE"]], s=42, color=RED, zorder=5, label="最优 Delta")
+    axes[0].set_xlabel("时间偏差 Delta / s")
+    axes[0].set_ylabel("RMSE / m")
+    axes[0].set_title("(a) 时间偏差搜索曲线")
+    axes[0].legend(frameon=False)
+    axes[1].plot(fused[TIME_COL], fused[X_COL], color=BLUE, label="X 坐标")
+    axes[1].plot(fused[TIME_COL], fused[Y_COL], color=ORANGE, label="Y 坐标")
+    axes[1].set_xlabel("时间 / s")
+    axes[1].set_ylabel("融合坐标 / m")
+    axes[1].set_title("(b) 10 Hz 融合轨迹坐标")
+    axes[1].legend(frameon=False)
+    for ax in axes:
+        style_axis(ax)
+    for path in [OUT / "v4" / "attachment1_rmse_10hz_split.pdf", OUT / "v4" / "attachment1_rmse_10hz_split.png"]:
+        kwargs = {"bbox_inches": "tight", "pad_inches": 0.04}
+        if path.suffix == ".png":
+            kwargs["dpi"] = 360
+        fig.savefig(path, **kwargs)
+    plt.close(fig)
+
+
+def plot_risk_tradeoff_clean() -> None:
+    risk = pd.read_csv(B_DIR / "outputs" / "tables" / "joint_risk_tradeoff_curve.csv")
+    labels = ["A 收益优先", "A1 轻裕度", "A2 均衡", "B 裕度优先", "B 严格裕度"]
+    fig, ax = plt.subplots(figsize=(6.8, 4.1))
+    ax.plot(risk["min_margin_filter"], risk["combined_target_utility"], marker="o", color=BLUE, label="综合效用")
+    ax.set_xlabel("最小裕度阈值")
+    ax.set_ylabel("综合效用")
+    ax.set_title("收益--风险折中曲线")
+    for x, y, label in zip(risk["min_margin_filter"], risk["combined_target_utility"], labels):
+        ax.annotate(label, (x, y), xytext=(4, 5), textcoords="offset points", fontsize=8.2)
+    ax2 = ax.twinx()
+    ax2.plot(risk["min_margin_filter"], risk["risk_count"], marker="s", color=RED, label="高风险事件数")
+    ax2.plot(risk["min_margin_filter"], risk["scenario_pass_rate"], marker="^", color=TEAL, label="场景通过率")
+    ax2.set_ylabel("高风险事件数 / 场景通过率")
+    lines, line_labels = ax.get_legend_handles_labels()
+    lines2, labels2 = ax2.get_legend_handles_labels()
+    ax.legend(lines + lines2, line_labels + labels2, frameon=False, loc="center right")
+    style_axis(ax)
+    ax2.spines["top"].set_visible(False)
+    ax2.grid(False)
+    for path in [OUT / "v4" / "joint_risk_tradeoff_curve_clean.pdf", OUT / "v4" / "joint_risk_tradeoff_curve_clean.png"]:
+        kwargs = {"bbox_inches": "tight", "pad_inches": 0.04}
+        if path.suffix == ".png":
+            kwargs["dpi"] = 360
+        fig.savefig(path, **kwargs)
+    plt.close(fig)
+
+
 def plot_pipeline_overview() -> None:
     custom_pipeline = ROOT / "框架图.pdf"
     if custom_pipeline.exists():
@@ -710,6 +786,8 @@ def plot_candidate_heatmap_refined() -> None:
 def main() -> None:
     setup()
     copy_v4_figures()
+    plot_attachment1_split_v4()
+    plot_risk_tradeoff_clean()
     plot_fov_risk_sensitivity()
     plot_pipeline_overview()
     plot_attachment1()
