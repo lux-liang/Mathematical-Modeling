@@ -351,12 +351,12 @@ def plot_time_space_speed_3d() -> None:
             zorder=5,
         )
         ax.set_title(title, fontsize=11.3, pad=8)
-        ax.set_xlabel("X 坐标 / m", labelpad=8, fontsize=10.5)
-        ax.set_ylabel("Y 坐标 / m", labelpad=8, fontsize=10.5)
-        ax.set_zlabel("时间 / s", labelpad=10, fontsize=10.5)
+        ax.set_xlabel("X (m)", labelpad=6)
+        ax.set_ylabel("Y (m)", labelpad=6)
+        ax.set_zlabel("Time (s)", labelpad=7)
         ax.view_init(elev=24, azim=-58)
-        ax.tick_params(axis="both", which="major", labelsize=8.5, pad=1)
-        ax.zaxis.set_tick_params(labelsize=8.5, pad=3)
+        ax.tick_params(axis="both", which="major", labelsize=8.2, pad=0)
+        ax.zaxis.set_tick_params(labelsize=8.2, pad=2)
         for axis in (ax.xaxis, ax.yaxis, ax.zaxis):
             axis.pane.set_facecolor((0.98, 0.985, 0.99, 0.38))
             axis.pane.set_edgecolor((0.84, 0.87, 0.91, 0.45))
@@ -373,10 +373,10 @@ def plot_time_space_speed_3d() -> None:
     cbar.ax.tick_params(labelsize=8.5)
     cbar.outline.set_linewidth(0.7)
 
-    fig.subplots_adjust(left=0.04, right=0.94, bottom=0.035, top=0.90, wspace=0.22)
+    fig.subplots_adjust(left=0.07, right=0.92, bottom=0.15, top=0.90, wspace=0.30)
     for suffix in [".pdf", ".png"]:
         path = OUT / "v4" / f"time_space_speed_3d{suffix}"
-        kwargs = {"bbox_inches": "tight", "pad_inches": 0.03}
+        kwargs = {"bbox_inches": "tight", "pad_inches": 0.16}
         if suffix == ".png":
             kwargs["dpi"] = 300
         fig.savefig(path, **kwargs)
@@ -687,14 +687,14 @@ def plot_joint_task_3d_events() -> None:
             zorder=8,
         )
 
-    ax.set_xlabel("X 坐标 / m", labelpad=8)
-    ax.set_ylabel("Y 坐标 / m", labelpad=8)
-    ax.set_zlabel("任务执行时刻 / s", labelpad=9)
+    ax.set_xlabel("X (m)", labelpad=7)
+    ax.set_ylabel("Y (m)", labelpad=7)
+    ax.set_zlabel("Event time (s)", labelpad=8)
     ax.set_title("轨迹--时间--任务事件三维分布", pad=12)
     ax.view_init(elev=25, azim=-60)
     ax.set_box_aspect((1.0, 1.0, 1.18))
-    ax.tick_params(axis="both", which="major", labelsize=8.5, pad=1)
-    ax.zaxis.set_tick_params(labelsize=8.5, pad=3)
+    ax.tick_params(axis="both", which="major", labelsize=8.2, pad=0)
+    ax.zaxis.set_tick_params(labelsize=8.2, pad=2)
     for axis in (ax.xaxis, ax.yaxis, ax.zaxis):
         axis.pane.set_facecolor((0.98, 0.985, 0.99, 0.38))
         axis.pane.set_edgecolor((0.84, 0.87, 0.91, 0.45))
@@ -710,7 +710,7 @@ def plot_joint_task_3d_events() -> None:
         mpl.lines.Line2D([0], [0], marker="o", color="w", markerfacecolor=RED, markeredgecolor="white", markersize=8, label="低裕度事件"),
     ]
     ax.legend(handles=handles, frameon=False, loc="upper left", bbox_to_anchor=(0.02, 0.98))
-    fig.subplots_adjust(left=0.02, right=0.92, bottom=0.02, top=0.93)
+    fig.subplots_adjust(left=0.08, right=0.90, bottom=0.20, top=0.92)
     save_both(fig, "joint_task_3d_events")
 
 
