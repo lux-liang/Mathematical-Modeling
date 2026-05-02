@@ -234,9 +234,9 @@ def plot_risk_tradeoff_clean() -> None:
         mpl.lines.Line2D([0], [0], marker="o", color="w", label="均衡", markerfacecolor=TEAL, markeredgecolor=DARK, markersize=7),
         mpl.lines.Line2D([0], [0], marker="o", color="w", label="裕度优先", markerfacecolor=ORANGE, markeredgecolor=DARK, markersize=7),
     ]
-    ax.legend(handles=handles, frameon=False, loc="lower left")
+    ax.legend(handles=handles, frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.12), ncol=3)
     style_axis(ax)
-    fig.subplots_adjust(left=0.10, right=0.98, bottom=0.12, top=0.90)
+    fig.subplots_adjust(left=0.10, right=0.98, bottom=0.22, top=0.90)
     save_both(fig, "joint_risk_tradeoff_curve_clean")
 
 
@@ -254,7 +254,8 @@ def plot_attachment2_clean_v4() -> None:
     ax.set_ylabel("Y 坐标 / m")
     ax.set_title("附件2时空配准与融合轨迹")
     style_axis(ax, equal=True)
-    ax.legend(frameon=False, loc="best")
+    ax.legend(frameon=False, loc="upper left", bbox_to_anchor=(1.02, 1.0), borderaxespad=0.0)
+    fig.subplots_adjust(right=0.78)
     save_both(fig, "attachment2_trajectory_kalman_rts")
 
     fig, axes = plt.subplots(1, 2, figsize=(9.2, 4.0))
@@ -330,10 +331,20 @@ def plot_time_space_speed_3d() -> None:
         ax.set_zlabel("时间 / s", labelpad=7)
         ax.view_init(elev=24, azim=-58)
         ax.grid(alpha=0.18)
-        ax.legend(frameon=False, loc="upper left")
     cbar = fig.colorbar(sc, ax=fig.axes, fraction=0.028, pad=0.02)
     cbar.set_label("速度 / (m/s)")
     fig.suptitle("时间参数化三维轨迹与速度散点", y=0.99, fontsize=12.0)
+    fig.legend(
+        handles=[
+            mpl.lines.Line2D([0], [0], marker="o", color="w", markerfacecolor=TEAL, markeredgecolor=TEAL, markersize=7, label="起点"),
+            mpl.lines.Line2D([0], [0], marker="o", color="w", markerfacecolor=RED, markeredgecolor=RED, markersize=7, label="终点"),
+        ],
+        frameon=False,
+        loc="lower center",
+        ncol=2,
+        bbox_to_anchor=(0.5, 0.02),
+    )
+    fig.subplots_adjust(bottom=0.12)
     save_both(fig, "time_space_speed_3d")
 
 
@@ -395,9 +406,10 @@ def plot_attachment12_comparison() -> None:
     axes[2].set_xlabel("X 坐标 / m")
     axes[2].set_ylabel("Y 坐标 / m")
     axes[2].set_title("(c) 10 Hz 融合轨迹")
-    axes[2].legend(frameon=False)
+    axes[2].legend(frameon=False, loc="center left", bbox_to_anchor=(1.02, 0.5), borderaxespad=0.0)
     for ax in axes:
         style_axis(ax)
+    fig.subplots_adjust(right=0.80)
     save_both(fig, "attachment12_alignment_compare")
 
 
@@ -491,7 +503,8 @@ def plot_attachment3_clean_v4() -> None:
     ax.set_ylabel("RMSE / m")
     ax.set_title("附件3偏差模型泛化对比")
     style_axis(ax)
-    ax.legend(frameon=False)
+    ax.legend(frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.14), ncol=2)
+    fig.subplots_adjust(bottom=0.18)
     save_both(fig, "attachment3_bias_model_cv_compare_clean")
 
 
@@ -540,8 +553,9 @@ def plot_task_spatial_and_gantt_v4() -> None:
     ax.set_ylabel("Y 坐标 / m")
     ax.set_title("联合任务方案空间分布")
     style_axis(ax, equal=True)
-    ax.legend(frameon=False, loc="lower left", ncol=2)
-    fig.subplots_adjust(left=0.10, right=0.98, top=0.92, bottom=0.10)
+    handles, labels = ax.get_legend_handles_labels()
+    fig.legend(handles=handles, labels=labels, frameon=False, loc="lower center", ncol=2, bbox_to_anchor=(0.5, -0.01))
+    fig.subplots_adjust(left=0.10, right=0.98, top=0.92, bottom=0.18)
     save_both(fig, "joint_task_spatial_distribution")
 
     work = selected.sort_values("execute_time").reset_index(drop=True)
@@ -568,7 +582,8 @@ def plot_task_spatial_and_gantt_v4() -> None:
         ax.tick_params(axis="y", labelsize=8.4)
     axes[0].set_ylabel("目标编号")
     fig.suptitle("最终任务准备窗口与执行时刻 Gantt 图", y=0.99, fontsize=12.0)
-    axes[1].legend(handles=legend_handles, frameon=False, ncol=1, loc="lower right")
+    fig.legend(handles=legend_handles, frameon=False, ncol=2, loc="lower center", bbox_to_anchor=(0.5, -0.02))
+    fig.subplots_adjust(bottom=0.20)
     save_both(fig, "joint_task_gantt_clean")
 
 
@@ -746,7 +761,8 @@ def plot_attachment3_traj() -> None:
     cbar = fig.colorbar(points, ax=ax, fraction=0.045, pad=0.02)
     cbar.set_label("时间 / s")
     style_axis(ax, equal=True)
-    ax.legend(frameon=False, loc="best")
+    ax.legend(frameon=False, loc="upper left", bbox_to_anchor=(1.02, 1.0), borderaxespad=0.0)
+    fig.subplots_adjust(right=0.78)
     save(OUT / "fig4_attachment3_fused_traj.pdf")
 
 
@@ -818,7 +834,8 @@ def plot_tasks_distribution() -> None:
     ax.set_ylabel("Y坐标 / m")
     ax.set_title("固定轨迹上的R5最终任务分布")
     style_axis(ax, equal=True)
-    ax.legend(frameon=False, loc="best")
+    ax.legend(frameon=False, loc="upper left", bbox_to_anchor=(1.02, 1.0), borderaxespad=0.0)
+    fig.subplots_adjust(right=0.78)
     save(OUT / "fig6_task_distribution.pdf")
 
 
@@ -874,7 +891,7 @@ def plot_timeline() -> None:
     axes[0].set_title("R5最终任务准备窗口与执行时序")
     axes[1].set_title("末段放大")
     fig.supxlabel("时间 / s", y=0.02)
-    axes[0].legend(
+    fig.legend(
         handles=[
             mpl.patches.Patch(facecolor=BLUE, edgecolor=DARK, alpha=0.78, label="射击准备窗口"),
             mpl.patches.Patch(facecolor=ORANGE, edgecolor=DARK, alpha=0.78, label="拍照准备窗口"),
@@ -882,7 +899,9 @@ def plot_timeline() -> None:
             mpl.patches.Patch(facecolor="white", edgecolor=RED, linewidth=1.5, label="高风险边界任务"),
         ],
         frameon=False,
-        loc="lower left",
+        loc="lower center",
+        ncol=4,
+        bbox_to_anchor=(0.52, -0.015),
     )
     for ax in axes:
         style_axis(ax)
