@@ -622,6 +622,98 @@ def plot_task_spatial_and_gantt_v4() -> None:
     save_both(fig, "joint_task_gantt_clean")
 
 
+def plot_joint_task_3d_events() -> None:
+    """Draw x-y-time task event scatter for the final joint plan."""
+
+    traj = add_speed_columns(pd.read_csv(B_DIR / "outputs" / "trajectories" / "fused_attachment3_10hz.csv"))
+    selected = pd.read_csv(B_DIR / "outputs" / "tables" / "joint_selected_events.csv").sort_values("execute_time")
+    pos = traj.set_index(TIME_COL).reindex(selected["execute_time"].to_numpy(float), method="nearest").reset_index()
+    is_photo = selected["event_type"].eq("photo").to_numpy()
+    low_margin = selected["margin"].to_numpy(float) < 0.03
+
+    fig = plt.figure(figsize=(8.8, 6.2))
+    ax = fig.add_subplot(111, projection="3d")
+    step = max(1, len(traj) // 900)
+    sample = traj.iloc[::step].copy()
+    ax.plot(sample[X_COL], sample[Y_COL], sample[TIME_COL], color="#BAC2CB", linewidth=0.85, alpha=0.58, zorder=1)
+    sc = ax.scatter(
+        sample[X_COL],
+        sample[Y_COL],
+        sample[TIME_COL],
+        c=sample["plot_speed"],
+        cmap="viridis",
+        s=5,
+        alpha=0.34,
+        linewidths=0,
+        depthshade=False,
+        zorder=2,
+    )
+    ax.scatter(
+        pos[X_COL][~is_photo],
+        pos[Y_COL][~is_photo],
+        selected["execute_time"][~is_photo],
+        s=np.where(low_margin[~is_photo], 74, 48),
+        marker="o",
+        color=np.where(low_margin[~is_photo], RED, BLUE),
+        edgecolor="white",
+        linewidth=0.7,
+        depthshade=False,
+        label="射击事件",
+        zorder=6,
+    )
+    ax.scatter(
+        pos[X_COL][is_photo],
+        pos[Y_COL][is_photo],
+        selected["execute_time"][is_photo],
+        s=np.where(low_margin[is_photo], 118, 92),
+        marker="^",
+        color=np.where(low_margin[is_photo], RED, ORANGE),
+        edgecolor=DARK,
+        linewidth=0.7,
+        depthshade=False,
+        label="拍照事件",
+        zorder=7,
+    )
+    for _, row in selected[selected["event_type"].eq("photo")].iterrows():
+        nearest = traj.iloc[(traj[TIME_COL] - float(row["execute_time"])).abs().argmin()]
+        label = str(row["covered_targets"])
+        ax.text(
+            float(nearest[X_COL]),
+            float(nearest[Y_COL]),
+            float(row["execute_time"]) + 4.0,
+            label,
+            fontsize=8.2,
+            color=DARK,
+            zorder=8,
+        )
+
+    ax.set_xlabel("X 坐标 / m", labelpad=8)
+    ax.set_ylabel("Y 坐标 / m", labelpad=8)
+    ax.set_zlabel("任务执行时刻 / s", labelpad=9)
+    ax.set_title("轨迹--时间--任务事件三维分布", pad=12)
+    ax.view_init(elev=25, azim=-60)
+    ax.set_box_aspect((1.0, 1.0, 1.18))
+    ax.tick_params(axis="both", which="major", labelsize=8.5, pad=1)
+    ax.zaxis.set_tick_params(labelsize=8.5, pad=3)
+    for axis in (ax.xaxis, ax.yaxis, ax.zaxis):
+        axis.pane.set_facecolor((0.98, 0.985, 0.99, 0.38))
+        axis.pane.set_edgecolor((0.84, 0.87, 0.91, 0.45))
+        axis._axinfo["grid"]["color"] = (0.72, 0.77, 0.82, 0.18)
+        axis._axinfo["grid"]["linewidth"] = 0.50
+
+    cbar = fig.colorbar(sc, ax=ax, shrink=0.70, pad=0.08)
+    cbar.set_label(r"轨迹速度 / (m·s$^{-1}$)", fontsize=9.2)
+    cbar.ax.tick_params(labelsize=8.2)
+    handles = [
+        mpl.lines.Line2D([0], [0], marker="o", color="w", markerfacecolor=BLUE, markeredgecolor="white", markersize=8, label="射击事件"),
+        mpl.lines.Line2D([0], [0], marker="^", color="w", markerfacecolor=ORANGE, markeredgecolor=DARK, markersize=9, label="拍照事件"),
+        mpl.lines.Line2D([0], [0], marker="o", color="w", markerfacecolor=RED, markeredgecolor="white", markersize=8, label="低裕度事件"),
+    ]
+    ax.legend(handles=handles, frameon=False, loc="upper left", bbox_to_anchor=(0.02, 0.98))
+    fig.subplots_adjust(left=0.02, right=0.92, bottom=0.02, top=0.93)
+    save_both(fig, "joint_task_3d_events")
+
+
 def _draw_fov_sector(ax: plt.Axes, center: tuple[float, float], radius: float, direction_deg: float, fov_deg: float, color: str) -> None:
     theta = np.linspace(np.radians(direction_deg - fov_deg / 2.0), np.radians(direction_deg + fov_deg / 2.0), 60)
     xs = center[0] + radius * np.cos(theta)
@@ -1109,7 +1201,10 @@ def plot_task_feasibility_heatmap() -> None:
 
 def plot_candidate_heatmap_refined() -> None:
     candidates = pd.read_csv(B_DIR / "outputs" / "tables" / "multi_uncertainty_task_pool.csv")
-    selected = selected_r5()
+    selected = pd.read_csv(B_DIR / "outputs" / "tables" / "joint_selected_events.csv").copy()
+    selected["任务"] = np.where(selected["event_type"].eq("photo"), "拍照", "射击")
+    selected["目标编号"] = np.where(selected["event_type"].eq("photo"), selected["covered_targets"], selected["target_id"])
+    selected["任务执行时刻(s)"] = selected["execute_time"]
     if candidates.empty:
         return
 
@@ -1125,15 +1220,15 @@ def plot_candidate_heatmap_refined() -> None:
 
     def row_order(item: tuple[str, str]) -> tuple[int, float, str]:
         task, target = item
-        task_rank = 0 if task == "拍照" else 1
+        task_rank = 0 if task == "射击" else 1
         return task_rank, float(first_time.loc[(task, target)]), target
 
     ordered_pairs = sorted(first_time.index.to_list(), key=row_order)
     row_labels = [f"{target} {task}" for task, target in ordered_pairs]
     row_index = {label: i for i, label in enumerate(row_labels)}
-    high_risk = {"P10", "P02", "S16"}
+    high_risk = {"P11", "S13", "S14", "S16"}
 
-    colors = ["#F3F4F6", "#C9DCE0", "#72AEB4", "#2F7F97", "#174A7C"]
+    colors = ["#F7F8FA", "#D6E7DF", "#91C7B1", "#3A8F8A", "#174A7C"]
     cmap = mpl.colors.LinearSegmentedColormap.from_list("paper_availability", colors)
     cmap.set_bad("#FFFFFF")
     vmax = 0.32
@@ -1196,14 +1291,17 @@ def plot_candidate_heatmap_refined() -> None:
 
         sel_part = selected[(selected["任务执行时刻(s)"] >= lo) & (selected["任务执行时刻(s)"] < hi)]
         for _, row in sel_part.iterrows():
-            target = str(row["目标编号"])
-            label = f"{target} {row['任务']}"
-            if label not in row_index:
+            targets = str(row["目标编号"]).split(",") if row["任务"] == "拍照" else [str(row["目标编号"])]
+            labels = [f"{target} {row['任务']}" for target in targets]
+            labels = [label for label in labels if label in row_index]
+            if not labels:
                 continue
+            y_value = float(np.mean([row_index[label] for label in labels]))
+            target = targets[0]
             is_boundary = target in high_risk
             ax.scatter(
                 float(row["任务执行时刻(s)"]),
-                row_index[label],
+                y_value,
                 marker="*",
                 s=92 if not is_boundary else 112,
                 color="#B55239" if is_boundary else "#D97904",
@@ -1214,7 +1312,7 @@ def plot_candidate_heatmap_refined() -> None:
             if is_boundary:
                 ax.scatter(
                     float(row["任务执行时刻(s)"]) + 0.55,
-                    row_index[label],
+                    y_value,
                     marker="^",
                     s=24,
                     color="#B55239",
@@ -1239,6 +1337,14 @@ def plot_candidate_heatmap_refined() -> None:
     fig.supxlabel("任务执行时刻 / s", fontsize=9.2, y=0.055)
     fig.suptitle("候选任务窗口的目标--时间分布与稳定裕度", fontsize=11.0, fontweight="bold", y=0.965)
 
+    split_y = [i for i, label in enumerate(row_labels) if label.endswith("拍照")]
+    if split_y:
+        y_sep = min(split_y) - 0.5
+        for ax in axes:
+            ax.axhline(y_sep, color="#6B7280", linewidth=0.75, linestyle=(0, (4, 2)), alpha=0.75, zorder=4)
+        axes[0].text(470.2, y_sep - 0.35, "射击目标", fontsize=8.2, color="#4B5563", va="bottom")
+        axes[0].text(470.2, y_sep + 0.55, "拍照目标", fontsize=8.2, color="#4B5563", va="top")
+
     axes[0].set_xticks(np.arange(470, 531, 10))
     axes[1].set_xticks(np.arange(740, 761, 5))
     axes[0].text(529.6, len(row_labels) - 0.25, "//", fontsize=12, color="#6B7280", ha="right", va="bottom")
@@ -1253,8 +1359,8 @@ def plot_candidate_heatmap_refined() -> None:
     cbar.outline.set_linewidth(0.6)
 
     handles = [
-        mpl.patches.Patch(facecolor="#72AEB4", edgecolor="none", label="候选窗口稳定裕度"),
-        mpl.lines.Line2D([0], [0], marker="*", color="w", markerfacecolor="#D97904", markeredgecolor="#253238", markersize=9, label="R5选中任务"),
+        mpl.patches.Patch(facecolor="#91C7B1", edgecolor="none", label="候选窗口稳定裕度"),
+        mpl.lines.Line2D([0], [0], marker="*", color="w", markerfacecolor="#D97904", markeredgecolor="#253238", markersize=9, label="最终选中任务"),
         mpl.lines.Line2D([0], [0], marker="*", color="w", markerfacecolor="#B55239", markeredgecolor="#253238", markersize=9, label="边界任务"),
     ]
     axes[1].legend(handles=handles, frameon=False, loc="lower right", bbox_to_anchor=(1.02, -0.02), fontsize=8.0)
@@ -1278,6 +1384,7 @@ def main() -> None:
     plot_kinematic_smoothing_compare()
     plot_attachment3_clean_v4()
     plot_task_spatial_and_gantt_v4()
+    plot_joint_task_3d_events()
     plot_task_space_with_fov()
     plot_fov_risk_sensitivity()
     plot_pipeline_overview()
