@@ -622,6 +622,74 @@ def plot_task_spatial_and_gantt_v4() -> None:
     save_both(fig, "joint_task_gantt_clean")
 
 
+def _draw_fov_sector(ax: plt.Axes, center: tuple[float, float], radius: float, direction_deg: float, fov_deg: float, color: str) -> None:
+    theta = np.linspace(np.radians(direction_deg - fov_deg / 2.0), np.radians(direction_deg + fov_deg / 2.0), 60)
+    xs = center[0] + radius * np.cos(theta)
+    ys = center[1] + radius * np.sin(theta)
+    poly_x = np.concatenate([[center[0]], xs, [center[0]]])
+    poly_y = np.concatenate([[center[1]], ys, [center[1]]])
+    ax.fill(poly_x, poly_y, color=color, alpha=0.18, zorder=4)
+    ax.plot(xs, ys, color=color, linewidth=1.0, alpha=0.85, zorder=5)
+    ax.plot([center[0], xs[0]], [center[1], ys[0]], color=color, linewidth=0.9, alpha=0.85, zorder=5)
+    ax.plot([center[0], xs[-1]], [center[1], ys[-1]], color=color, linewidth=0.9, alpha=0.85, zorder=5)
+
+
+def plot_task_space_with_fov() -> None:
+    traj = pd.read_csv(B_DIR / "outputs" / "trajectories" / "fused_attachment3_v4_10hz.csv")
+    targets = read_targets()
+    selected = pd.read_csv(B_DIR / "outputs" / "tables" / "joint_selected_events.csv")
+    photo_events = selected[selected["event_type"] == "photo"].copy().reset_index(drop=True)
+    if photo_events.empty:
+        return
+
+    shoot = targets[targets["task"] == "shooting"].copy()
+    photo = targets[targets["task"] == "photo"].copy()
+    photo_lookup = photo.set_index("编号")
+
+    fig, ax = plt.subplots(figsize=(8.1, 6.0))
+    ax.plot(traj[X_COL], traj[Y_COL], color="#C8CDD3", linewidth=0.90, alpha=0.75, label="10 Hz 任务轨迹", zorder=1)
+    ax.scatter(shoot[X_COL], shoot[Y_COL], s=28, color="#9EBAD4", alpha=0.28, label="射击目标", zorder=2)
+    ax.scatter(photo[X_COL], photo[Y_COL], s=32, color="#E7B07A", alpha=0.32, label="拍照目标", zorder=2)
+
+    exec_pos = traj.set_index(TIME_COL).reindex(photo_events["execute_time"].to_numpy(float), method="nearest").reset_index()
+    colors = [ORANGE, TEAL, BLUE, RED]
+    for idx, (_, ev) in enumerate(photo_events.iterrows()):
+        center = (float(exec_pos.loc[idx, X_COL]), float(exec_pos.loc[idx, Y_COL]))
+        direction = float(ev["camera_direction"])
+        radius = min(36.0, float(ev["max_distance"]) + 2.5)
+        color = colors[idx % len(colors)]
+        _draw_fov_sector(ax, center, radius, direction, 45.0, color)
+        ax.scatter(center[0], center[1], s=90, marker="^", color=color, edgecolor=DARK, linewidth=0.65, zorder=6)
+        ax.annotate(
+            f"{ev['event_id']}\n$\\alpha$={direction:.0f}°",
+            xy=center,
+            xytext=(8, 8),
+            textcoords="offset points",
+            fontsize=8.8,
+            color=DARK,
+            bbox=dict(boxstyle="round,pad=0.18", fc="white", ec="#C9CED6", lw=0.55, alpha=0.94),
+            zorder=7,
+        )
+        for target_id in str(ev["covered_targets"]).split(","):
+            if target_id not in photo_lookup.index:
+                continue
+            tx = float(photo_lookup.loc[target_id, X_COL])
+            ty = float(photo_lookup.loc[target_id, Y_COL])
+            ax.plot([center[0], tx], [center[1], ty], color=color, linewidth=0.95, alpha=0.82, zorder=5)
+
+    covered_targets = sorted({tid for text in photo_events["covered_targets"].astype(str) for tid in text.split(",")})
+    covered = photo[photo["编号"].isin(covered_targets)].copy()
+    ax.scatter(covered[X_COL], covered[Y_COL], s=62, color=ORANGE, edgecolor=DARK, linewidth=0.55, alpha=0.95, label="被联合方案覆盖的拍照目标", zorder=6)
+
+    ax.set_xlabel("X 坐标 / m")
+    ax.set_ylabel("Y 坐标 / m")
+    ax.set_title("拍照 FOV 扇形与任务空间关系")
+    style_axis(ax, equal=True)
+    ax.legend(frameon=False, loc="upper left", bbox_to_anchor=(1.02, 1.0), borderaxespad=0.0)
+    fig.subplots_adjust(right=0.77)
+    save_both(fig, "task_space_fov_relationship")
+
+
 def plot_pipeline_overview() -> None:
     custom_pipeline = ROOT / "框架图.pdf"
     if custom_pipeline.exists():
@@ -1210,6 +1278,7 @@ def main() -> None:
     plot_kinematic_smoothing_compare()
     plot_attachment3_clean_v4()
     plot_task_spatial_and_gantt_v4()
+    plot_task_space_with_fov()
     plot_fov_risk_sensitivity()
     plot_pipeline_overview()
     plot_attachment1()
