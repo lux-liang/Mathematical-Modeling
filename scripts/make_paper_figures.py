@@ -133,14 +133,14 @@ def plot_fov_risk_sensitivity() -> None:
     ax.plot(x, risk["combined_target_utility"], marker="o", color=BLUE)
     ax.set_xlabel("最小裕度阈值")
     ax.set_ylabel("综合效用")
-    ax.set_title("(b) 裕度阈值与收益")
+    ax.set_title("(b) 裕度阈值与综合效用")
 
     ax = axes[1, 0]
     ax.bar(np.arange(len(risk)), risk["risk_count"], width=0.55, color=RED, alpha=0.84)
     ax.set_xticks(np.arange(len(risk)), labels)
     ax.set_xlabel("方案族")
     ax.set_ylabel("高风险事件数")
-    ax.set_title("(c) 高风险事件")
+    ax.set_title("(c) 方案族高风险事件数")
 
     ax = axes[1, 1]
     ax.plot(np.arange(len(risk)), risk["scenario_pass_rate"], marker="o", color=TEAL)
@@ -148,11 +148,11 @@ def plot_fov_risk_sensitivity() -> None:
     ax.set_xlabel("方案族")
     ax.set_ylabel("场景通过率")
     ax.set_ylim(0.84, 1.0)
-    ax.set_title("(d) 扰动场景通过率")
+    ax.set_title("(d) 方案族场景通过率")
 
     for ax in axes.flat:
         style_axis(ax)
-    fig.suptitle("FOV 与风险偏好灵敏度", y=0.995, fontsize=12.0)
+    fig.suptitle("视场角、裕度阈值与鲁棒性灵敏度", y=0.995, fontsize=12.0)
     fig.subplots_adjust(left=0.08, right=0.98, top=0.90, bottom=0.09, wspace=0.28, hspace=0.44)
     save_both(fig, "fov_risk_sensitivity")
 
@@ -222,13 +222,12 @@ def plot_risk_tradeoff_clean() -> None:
     for label, (_, row) in zip(labels, risk.iterrows()):
         ax.annotate(label, (row["risk_count"], row["combined_target_utility"]), xytext=offsets[label], textcoords="offset points", fontsize=9.0,
                     bbox=dict(boxstyle="round,pad=0.18", fc="white", ec="#C9CED6", lw=0.6, alpha=0.92))
-    ax.annotate("风险下降方向", xy=(0.15, risk["combined_target_utility"].iloc[-2]), xytext=(4.35, 11.75),
+    ax.annotate("风险下降方向", xy=(0.2, risk["combined_target_utility"].iloc[-2]), xytext=(3.55, 11.72),
                 arrowprops=dict(arrowstyle="->", color=GRAY, lw=1.0), color=GRAY, fontsize=9.2)
     ax.set_xlabel("高风险事件数")
     ax.set_ylabel("综合效用")
-    ax.set_title("收益--风险 Pareto 方案族")
-    ax.invert_xaxis()
-    ax.set_xlim(risk["risk_count"].max() + 0.7, -0.7)
+    ax.set_title("收益--风险 Pareto 方案族散点图")
+    ax.set_xlim(-0.7, risk["risk_count"].max() + 0.7)
     ax.set_ylim(risk["combined_target_utility"].min() - 0.6, risk["combined_target_utility"].max() + 0.6)
     handles = [
         mpl.lines.Line2D([0], [0], marker="o", color="w", label="收益优先", markerfacecolor=BLUE, markeredgecolor=DARK, markersize=7),
@@ -451,7 +450,7 @@ def plot_kinematic_smoothing_compare() -> None:
     axes[1].plot(t[sample], acc_ref[sample], color="#9AA3AD", linewidth=0.9, alpha=0.82, label="参考源有限差分")
     axes[1].plot(t[sample], acc_rts[sample], color=ORANGE, linewidth=1.35, label="RTS 平滑状态")
     axes[1].set_xlabel("时间 / s")
-    axes[1].set_ylabel(r"加速度 / (m/s$^2$)", labelpad=8)
+    axes[1].set_ylabel("加速度 / (m/s²)", labelpad=10)
     axes[1].set_title("(b) 加速度序列")
     axes[1].legend(frameon=False, ncol=2)
     for ax in axes:
@@ -566,6 +565,7 @@ def plot_task_spatial_and_gantt_v4() -> None:
         ax.set_title(title)
         ax.set_xlim(lo, hi)
         style_axis(ax)
+        ax.tick_params(axis="y", labelsize=8.4)
     axes[0].set_ylabel("目标编号")
     fig.suptitle("最终任务准备窗口与执行时刻 Gantt 图", y=0.99, fontsize=12.0)
     axes[1].legend(handles=legend_handles, frameon=False, ncol=1, loc="lower right")
@@ -589,7 +589,7 @@ def plot_pipeline_overview() -> None:
         (0.035, 0.24, 0.20, 0.52, "A. 多源定位输入", "定位方式1：4 Hz\n定位方式2：5 Hz\n附件1--3轨迹数据"),
         (0.285, 0.24, 0.22, 0.52, "B. 时空配准", "估计 Delta\n固定平移型相对偏差 b\nBootstrap + 工程阈值"),
         (0.555, 0.24, 0.18, 0.52, "C. 10 Hz融合轨迹", "输出 pf(t)\n计算 v(t) 与 a(t)\n状态估计与复核"),
-        (0.785, 0.24, 0.19, 0.52, "D. 固定轨迹任务优化", "可行窗口 + 归一化裕度\nMILP + 多场景鲁棒筛选\nR5 输出：9任务/9覆盖"),
+        (0.785, 0.24, 0.19, 0.52, "D. 固定轨迹任务优化", "可行窗口与约束筛选\nMILP + 多场景鲁棒筛选\nR5 输出：9任务/9覆盖"),
     ]
     for i, (x, y, w, h, title, body) in enumerate(boxes):
         edge = ORANGE if i == 3 else BLUE
@@ -616,6 +616,12 @@ def plot_pipeline_overview() -> None:
             xytext=(x0, y),
             arrowprops=dict(arrowstyle="-|>", lw=1.35, color=BLUE, shrinkA=0, shrinkB=0),
         )
+    ax.annotate("误差识别", xy=(0.395, 0.79), xytext=(0.395, 0.90), ha="center",
+                arrowprops=dict(arrowstyle="-|>", lw=1.0, color=GRAY), color=GRAY, fontsize=9.2)
+    ax.annotate("轨迹输出", xy=(0.645, 0.79), xytext=(0.645, 0.90), ha="center",
+                arrowprops=dict(arrowstyle="-|>", lw=1.0, color=GRAY), color=GRAY, fontsize=9.2)
+    ax.annotate("调度决策", xy=(0.88, 0.79), xytext=(0.88, 0.90), ha="center",
+                arrowprops=dict(arrowstyle="-|>", lw=1.0, color=GRAY), color=GRAY, fontsize=9.2)
     ax.text(0.5, 0.91, "多源机器人定位融合与固定轨迹任务调度总体流程", ha="center", va="center", fontsize=12.2, weight="bold", color=DARK)
     save(GEN_OUT / "fig_pipeline_overview.pdf")
 
