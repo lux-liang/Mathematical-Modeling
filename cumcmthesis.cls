@@ -145,7 +145,6 @@
     \vskip 1.2em
     \begin{tabular}{rl}
       学校名称： & \@school \\
-      队伍编号： & \@teamname \\
       参赛队员： & \@members \\
       指导教师： & \@advisor \\
       完成日期： & \@date \\
