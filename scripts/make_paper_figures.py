@@ -115,7 +115,7 @@ def plot_fov_risk_sensitivity() -> None:
 
     fov = pd.read_csv(B_DIR / "outputs" / "tables" / "photo_fov_sensitivity.csv")
     risk = pd.read_csv(B_DIR / "outputs" / "tables" / "joint_risk_tradeoff_curve.csv")
-    fig, axes = plt.subplots(1, 2, figsize=(9.4, 3.8))
+    fig, axes = plt.subplots(1, 3, figsize=(10.8, 3.6))
 
     axes[0].plot(fov["fov_degree"], fov["covered_targets"], marker="o", color=BLUE, label="覆盖拍照目标")
     axes[0].plot(fov["fov_degree"], fov["total_target_observations"], marker="s", color=TEAL, label="总观测次数")
@@ -126,24 +126,23 @@ def plot_fov_risk_sensitivity() -> None:
     axes[0].set_xticks(fov["fov_degree"])
     axes[0].legend(frameon=False)
 
-    x = np.arange(len(risk))
-    axes[1].bar(x, risk["combined_target_utility"], color=BLUE, alpha=0.82, label="综合效用")
+    x = risk["min_margin_filter"]
+    axes[1].plot(x, risk["combined_target_utility"], marker="o", color=BLUE, label="综合效用")
+    axes[1].set_xlabel("最小裕度阈值")
     axes[1].set_ylabel("综合效用")
-    axes[1].set_xticks(x, risk["plan_name"].astype(str), rotation=22, ha="right")
-    axes[1].set_title("(b) 风险权重与裕度折中")
-    ax2 = axes[1].twinx()
-    ax2.plot(x, risk["risk_count"], marker="o", color=RED, label="高风险事件数")
-    ax2.plot(x, risk["scenario_pass_rate"], marker="s", color=TEAL, label="场景通过率")
-    ax2.set_ylabel("风险数 / 通过率")
-    ax2.set_ylim(0, max(5.5, float(risk["risk_count"].max()) + 0.5))
-    lines, labels = axes[1].get_legend_handles_labels()
-    lines2, labels2 = ax2.get_legend_handles_labels()
-    axes[1].legend(lines + lines2, labels + labels2, frameon=False, loc="upper right")
+    axes[1].set_title("(b) 裕度阈值与综合效用")
+    axes[1].legend(frameon=False)
+
+    axes[2].bar(np.arange(len(risk)) - 0.18, risk["risk_count"], width=0.36, color=RED, alpha=0.82, label="高风险事件数")
+    axes[2].bar(np.arange(len(risk)) + 0.18, risk["scenario_pass_rate"] * 5.0, width=0.36, color=TEAL, alpha=0.82, label="场景通过率 x5")
+    axes[2].set_xticks(np.arange(len(risk)), ["A0", "A1", "A2", "B", "B2"], rotation=0)
+    axes[2].set_xlabel("方案族")
+    axes[2].set_ylabel("风险指标")
+    axes[2].set_title("(c) 风险事件与通过率")
+    axes[2].legend(frameon=False)
 
     for ax in axes:
         style_axis(ax)
-    ax2.spines["top"].set_visible(False)
-    ax2.grid(False)
     for path in [OUT / "v4" / "fov_risk_sensitivity.pdf", OUT / "v4" / "fov_risk_sensitivity.png"]:
         kwargs = {"bbox_inches": "tight", "pad_inches": 0.04}
         if path.suffix == ".png":
@@ -325,6 +324,64 @@ def plot_time_space_speed_3d() -> None:
     save_both(fig, "time_space_speed_3d")
 
 
+def plot_kinematic_smoothing_compare() -> None:
+    """Compare finite-difference kinematics before and after state smoothing."""
+
+    df = pd.read_csv(B_DIR / "outputs" / "trajectories" / "fused_attachment2_10hz.csv")
+    t = df[TIME_COL].to_numpy(float)
+
+    def kin(x: pd.Series, y: pd.Series) -> tuple[np.ndarray, np.ndarray]:
+        x_arr = x.to_numpy(float)
+        y_arr = y.to_numpy(float)
+        vx = np.gradient(x_arr, t)
+        vy = np.gradient(y_arr, t)
+        speed = np.sqrt(vx * vx + vy * vy)
+        ax_arr = np.gradient(vx, t)
+        ay_arr = np.gradient(vy, t)
+        acc = np.sqrt(ax_arr * ax_arr + ay_arr * ay_arr)
+        return speed, acc
+
+    speed_ref, acc_ref = kin(df["x1_aligned"], df["y1_aligned"])
+    speed_rts, acc_rts = kin(df[X_COL], df[Y_COL])
+    metrics = pd.DataFrame(
+        [
+            {
+                "method": "reference_finite_difference",
+                "speed_p95": np.percentile(speed_ref, 95),
+                "speed_tv": np.sum(np.abs(np.diff(speed_ref))),
+                "acceleration_p95": np.percentile(acc_ref, 95),
+                "acceleration_tv": np.sum(np.abs(np.diff(acc_ref))),
+            },
+            {
+                "method": "kalman_rts_state",
+                "speed_p95": np.percentile(speed_rts, 95),
+                "speed_tv": np.sum(np.abs(np.diff(speed_rts))),
+                "acceleration_p95": np.percentile(acc_rts, 95),
+                "acceleration_tv": np.sum(np.abs(np.diff(acc_rts))),
+            },
+        ]
+    )
+    metrics.to_csv(OUT / "v4" / "attachment2_kinematic_smoothing_metrics.csv", index=False)
+
+    sample = slice(None, None, max(1, len(df) // 2200))
+    fig, axes = plt.subplots(2, 1, figsize=(8.4, 5.2), sharex=True)
+    axes[0].plot(t[sample], speed_ref[sample], color="#9AA3AD", linewidth=0.9, alpha=0.82, label="参考源有限差分")
+    axes[0].plot(t[sample], speed_rts[sample], color=BLUE, linewidth=1.35, label="RTS 平滑状态")
+    axes[0].set_ylabel("速度 / (m/s)")
+    axes[0].set_title("(a) 速度序列")
+    axes[0].legend(frameon=False, ncol=2)
+    axes[1].plot(t[sample], acc_ref[sample], color="#9AA3AD", linewidth=0.9, alpha=0.82, label="参考源有限差分")
+    axes[1].plot(t[sample], acc_rts[sample], color=ORANGE, linewidth=1.35, label="RTS 平滑状态")
+    axes[1].set_xlabel("时间 / s")
+    axes[1].set_ylabel("加速度 / (m/s$^2$)")
+    axes[1].set_title("(b) 加速度序列")
+    axes[1].legend(frameon=False, ncol=2)
+    for ax in axes:
+        style_axis(ax)
+    fig.suptitle("附件2有限差分与 RTS 状态运动学量对比", y=0.99, fontsize=12.0)
+    save_both(fig, "attachment2_kinematic_smoothing_compare")
+
+
 def plot_attachment3_clean_v4() -> None:
     feat = pd.read_csv(B_DIR / "outputs" / "tables" / "attachment3_residual_feature_frame.csv")
     comp = pd.read_csv(B_DIR / "outputs" / "tables" / "attachment3_bias_structure_comparison.csv")
@@ -385,25 +442,30 @@ def plot_task_spatial_and_gantt_v4() -> None:
     ax.legend(frameon=False, loc="best")
     save_both(fig, "joint_task_spatial_distribution")
 
-    fig, ax = plt.subplots(figsize=(9.2, 6.2))
     work = selected.sort_values("execute_time").reset_index(drop=True)
-    y = np.arange(len(work))[::-1]
-    colors = np.where(work["event_type"].eq("photo"), ORANGE, BLUE)
-    labels = work["covered_targets"].astype(str).to_list()
-    for yi, (_, row), color in zip(y, work.iterrows(), colors):
-        ax.barh(yi, row["execute_time"] - row["start_time"], left=row["start_time"], height=0.56, color=color, alpha=0.82, edgecolor=DARK, linewidth=0.5)
-        ax.plot(row["execute_time"], yi, marker="*", color=RED if row["margin"] < 0.03 else DARK, markersize=7.5, zorder=5)
-    ax.set_yticks(y, labels)
-    ax.set_xlabel("时间 / s")
-    ax.set_ylabel("目标编号")
-    ax.set_title("最终任务准备窗口与执行时刻 Gantt 图")
-    ax.legend(handles=[
+    groups = [(470, 540, "前段任务窗口"), (745, 770, "后段任务窗口")]
+    fig, axes = plt.subplots(1, 2, figsize=(10.6, 5.8), gridspec_kw={"width_ratios": [1.55, 1.0]}, sharey=False)
+    legend_handles = [
         mpl.patches.Patch(facecolor=BLUE, edgecolor=DARK, label="射击准备窗口"),
         mpl.patches.Patch(facecolor=ORANGE, edgecolor=DARK, label="拍照准备窗口"),
         mpl.lines.Line2D([0], [0], marker="*", color="w", markerfacecolor=DARK, markeredgecolor=DARK, label="执行时刻"),
         mpl.lines.Line2D([0], [0], marker="*", color="w", markerfacecolor=RED, markeredgecolor=RED, label="低裕度执行点"),
-    ], frameon=False, ncol=2, loc="lower right")
-    style_axis(ax)
+    ]
+    for ax, (lo, hi, title) in zip(axes, groups):
+        part = work[(work["execute_time"] >= lo) & (work["execute_time"] <= hi)].copy().reset_index(drop=True)
+        y = np.arange(len(part))[::-1]
+        for yi, (_, row) in zip(y, part.iterrows()):
+            color = ORANGE if row["event_type"] == "photo" else BLUE
+            ax.barh(yi, row["execute_time"] - row["start_time"], left=row["start_time"], height=0.56, color=color, alpha=0.84, edgecolor=DARK, linewidth=0.5)
+            ax.plot(row["execute_time"], yi, marker="*", color=RED if row["margin"] < 0.03 else DARK, markersize=7.5, zorder=5)
+        ax.set_yticks(y, part["covered_targets"].astype(str).to_list())
+        ax.set_xlabel("时间 / s")
+        ax.set_title(title)
+        ax.set_xlim(lo, hi)
+        style_axis(ax)
+    axes[0].set_ylabel("目标编号")
+    fig.suptitle("最终任务准备窗口与执行时刻 Gantt 图", y=0.99, fontsize=12.0)
+    axes[1].legend(handles=legend_handles, frameon=False, ncol=1, loc="lower right")
     save_both(fig, "joint_task_gantt_clean")
 
 
@@ -981,6 +1043,7 @@ def main() -> None:
     plot_risk_tradeoff_clean()
     plot_attachment2_clean_v4()
     plot_time_space_speed_3d()
+    plot_kinematic_smoothing_compare()
     plot_attachment3_clean_v4()
     plot_task_spatial_and_gantt_v4()
     plot_fov_risk_sensitivity()
