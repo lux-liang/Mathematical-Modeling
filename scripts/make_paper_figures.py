@@ -11,6 +11,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
 
 
 B_DIR = Path("/home/lux_liang/work/projects/github/数模校赛B题")
@@ -260,6 +261,68 @@ def plot_attachment2_clean_v4() -> None:
     for ax in axes:
         style_axis(ax)
     save_both(fig, "attachment2_residual_distribution_compare")
+
+
+def add_speed_columns(traj: pd.DataFrame) -> pd.DataFrame:
+    work = traj.copy()
+    if "speed" in work.columns:
+        work["plot_speed"] = work["speed"]
+        return work
+    t = work[TIME_COL].to_numpy(float)
+    x = work[X_COL].to_numpy(float)
+    y = work[Y_COL].to_numpy(float)
+    vx = np.gradient(x, t)
+    vy = np.gradient(y, t)
+    work["plot_speed"] = np.sqrt(vx * vx + vy * vy)
+    return work
+
+
+def plot_time_space_speed_3d() -> None:
+    """Draw time-parameterized 3D trajectory scatter for problems 1 and 2."""
+
+    datasets = [
+        ("附件1无噪声对齐轨迹", "fused_attachment1_10hz.csv"),
+        ("附件2含噪融合轨迹", "fused_attachment2_10hz.csv"),
+    ]
+    fig = plt.figure(figsize=(10.2, 4.8))
+    norm_values = []
+    frames = []
+    for _, name in datasets:
+        df = add_speed_columns(pd.read_csv(B_DIR / "outputs" / "trajectories" / name))
+        frames.append(df)
+        norm_values.append(df["plot_speed"].quantile(0.98))
+    vmax = float(max(norm_values))
+
+    for idx, ((title, _), df) in enumerate(zip(datasets, frames), start=1):
+        step = max(1, len(df) // 900)
+        sample = df.iloc[::step, :].copy()
+        ax = fig.add_subplot(1, 2, idx, projection="3d")
+        sc = ax.scatter(
+            sample[X_COL],
+            sample[Y_COL],
+            sample[TIME_COL],
+            c=sample["plot_speed"],
+            cmap="viridis",
+            vmin=0,
+            vmax=vmax,
+            s=8,
+            alpha=0.86,
+            linewidths=0,
+        )
+        ax.plot(df[X_COL], df[Y_COL], df[TIME_COL], color="#5B6470", linewidth=0.45, alpha=0.38)
+        ax.scatter(df[X_COL].iloc[0], df[Y_COL].iloc[0], df[TIME_COL].iloc[0], s=38, color=TEAL, label="起点")
+        ax.scatter(df[X_COL].iloc[-1], df[Y_COL].iloc[-1], df[TIME_COL].iloc[-1], s=38, color=RED, label="终点")
+        ax.set_title(title)
+        ax.set_xlabel("X 坐标 / m", labelpad=7)
+        ax.set_ylabel("Y 坐标 / m", labelpad=7)
+        ax.set_zlabel("时间 / s", labelpad=7)
+        ax.view_init(elev=24, azim=-58)
+        ax.grid(alpha=0.18)
+        ax.legend(frameon=False, loc="upper left")
+    cbar = fig.colorbar(sc, ax=fig.axes, fraction=0.028, pad=0.02)
+    cbar.set_label("速度 / (m/s)")
+    fig.suptitle("时间参数化三维轨迹与速度散点", y=0.99, fontsize=12.0)
+    save_both(fig, "time_space_speed_3d")
 
 
 def plot_attachment3_clean_v4() -> None:
@@ -917,6 +980,7 @@ def main() -> None:
     plot_attachment1_split_v4()
     plot_risk_tradeoff_clean()
     plot_attachment2_clean_v4()
+    plot_time_space_speed_3d()
     plot_attachment3_clean_v4()
     plot_task_spatial_and_gantt_v4()
     plot_fov_risk_sensitivity()
