@@ -140,15 +140,6 @@
 \renewcommand{\maketitle}{%
   \begin{center}
     {\zihao{2}\bfseries \@title \par}
-    \vskip 0.8em
-    {\zihao{4}\@contestname \par}
-    \vskip 1.2em
-    \begin{tabular}{rl}
-      学校名称： & \@school \\
-      参赛队员： & \@members \\
-      指导教师： & \@advisor \\
-      完成日期： & \@date \\
-    \end{tabular}
   \end{center}
   \vskip 1.2em
 }
