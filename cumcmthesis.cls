@@ -95,7 +95,7 @@
 \renewcommand\appendixname{附录}
 \renewcommand\abstractname{摘要}
 
-\setcounter{secnumdepth}{4}
+\setcounter{secnumdepth}{3}
 \renewcommand\thesection{\chinese{section}、\kern-1em}
 \renewcommand\thesubsection{\arabic{section}.\arabic{subsection}}
 \renewcommand\thesubsubsection{\thesubsection.\arabic{subsubsection}}

@@ -111,44 +111,50 @@ def copy_v4_figures() -> None:
 
 
 def plot_fov_risk_sensitivity() -> None:
-    """Draw compact sensitivity curves for camera FOV and risk-weight tradeoff."""
+    """Draw separated sensitivity panels for camera FOV and risk preference."""
 
     fov = pd.read_csv(B_DIR / "outputs" / "tables" / "photo_fov_sensitivity.csv")
     risk = pd.read_csv(B_DIR / "outputs" / "tables" / "joint_risk_tradeoff_curve.csv")
-    fig, axes = plt.subplots(1, 3, figsize=(10.8, 3.6))
+    labels = ["A0", "A1", "A2", "B", "B2"]
+    fig, axes = plt.subplots(2, 2, figsize=(9.8, 6.4))
 
-    axes[0].plot(fov["fov_degree"], fov["covered_targets"], marker="o", color=BLUE, label="覆盖拍照目标")
-    axes[0].plot(fov["fov_degree"], fov["total_target_observations"], marker="s", color=TEAL, label="总观测次数")
-    axes[0].plot(fov["fov_degree"], fov["multi_target_events"], marker="^", color=ORANGE, label="多目标同拍事件")
-    axes[0].set_xlabel("视场角 FOV / 度")
-    axes[0].set_ylabel("数量 / 个")
-    axes[0].set_title("(a) FOV 灵敏度")
-    axes[0].set_xticks(fov["fov_degree"])
-    axes[0].legend(frameon=False)
+    ax = axes[0, 0]
+    ax.plot(fov["fov_degree"], fov["covered_targets"], marker="o", color=BLUE, label="覆盖目标数")
+    ax.plot(fov["fov_degree"], fov["total_target_observations"], marker="s", color=TEAL, label="总观测次数")
+    ax.plot(fov["fov_degree"], fov["multi_target_events"], marker="^", color=ORANGE, label="多目标同拍事件")
+    ax.set_xlabel("视场角 FOV / 度")
+    ax.set_ylabel("数量 / 个")
+    ax.set_title("(a) 感知视场角")
+    ax.set_xticks(fov["fov_degree"])
+    ax.legend(frameon=False, loc="upper left")
 
-    x = risk["min_margin_filter"]
-    axes[1].plot(x, risk["combined_target_utility"], marker="o", color=BLUE, label="综合效用")
-    axes[1].set_xlabel("最小裕度阈值")
-    axes[1].set_ylabel("综合效用")
-    axes[1].set_title("(b) 裕度阈值与综合效用")
-    axes[1].legend(frameon=False)
+    ax = axes[0, 1]
+    x = risk["min_margin_filter"].replace(-1.0, 0.0)
+    ax.plot(x, risk["combined_target_utility"], marker="o", color=BLUE)
+    ax.set_xlabel("最小裕度阈值")
+    ax.set_ylabel("综合效用")
+    ax.set_title("(b) 裕度阈值与收益")
 
-    axes[2].bar(np.arange(len(risk)) - 0.18, risk["risk_count"], width=0.36, color=RED, alpha=0.82, label="高风险事件数")
-    axes[2].bar(np.arange(len(risk)) + 0.18, risk["scenario_pass_rate"] * 5.0, width=0.36, color=TEAL, alpha=0.82, label="场景通过率 x5")
-    axes[2].set_xticks(np.arange(len(risk)), ["A0", "A1", "A2", "B", "B2"], rotation=0)
-    axes[2].set_xlabel("方案族")
-    axes[2].set_ylabel("风险指标")
-    axes[2].set_title("(c) 风险事件与通过率")
-    axes[2].legend(frameon=False)
+    ax = axes[1, 0]
+    ax.bar(np.arange(len(risk)), risk["risk_count"], width=0.55, color=RED, alpha=0.84)
+    ax.set_xticks(np.arange(len(risk)), labels)
+    ax.set_xlabel("方案族")
+    ax.set_ylabel("高风险事件数")
+    ax.set_title("(c) 高风险事件")
 
-    for ax in axes:
+    ax = axes[1, 1]
+    ax.plot(np.arange(len(risk)), risk["scenario_pass_rate"], marker="o", color=TEAL)
+    ax.set_xticks(np.arange(len(risk)), labels)
+    ax.set_xlabel("方案族")
+    ax.set_ylabel("场景通过率")
+    ax.set_ylim(0.84, 1.0)
+    ax.set_title("(d) 扰动场景通过率")
+
+    for ax in axes.flat:
         style_axis(ax)
-    for path in [OUT / "v4" / "fov_risk_sensitivity.pdf", OUT / "v4" / "fov_risk_sensitivity.png"]:
-        kwargs = {"bbox_inches": "tight", "pad_inches": 0.04}
-        if path.suffix == ".png":
-            kwargs["dpi"] = 360
-        fig.savefig(path, **kwargs)
-    plt.close(fig)
+    fig.suptitle("FOV 与风险偏好灵敏度", y=0.995, fontsize=12.0)
+    fig.subplots_adjust(left=0.08, right=0.98, top=0.90, bottom=0.09, wspace=0.28, hspace=0.44)
+    save_both(fig, "fov_risk_sensitivity")
 
 
 def plot_attachment1_split_v4() -> None:
@@ -201,30 +207,38 @@ def plot_attachment1_split_v4() -> None:
 
 def plot_risk_tradeoff_clean() -> None:
     risk = pd.read_csv(B_DIR / "outputs" / "tables" / "joint_risk_tradeoff_curve.csv")
-    labels = ["A 收益优先", "A1 轻裕度", "A2 均衡", "B 裕度优先", "B 严格裕度"]
-    fig, ax = plt.subplots(figsize=(6.8, 4.1))
-    ax.plot(risk["min_margin_filter"], risk["combined_target_utility"], marker="o", color=BLUE, label="综合效用")
-    ax.set_xlabel("最小裕度阈值")
+    labels = ["A0", "A1", "A2", "B", "B2"]
+    colors = [BLUE, BLUE, TEAL, ORANGE, ORANGE]
+    sizes = 42 + 12 * risk["photo_targets_covered"].to_numpy(float)
+    fig, ax = plt.subplots(figsize=(7.4, 4.9))
+    ax.scatter(risk["risk_count"], risk["combined_target_utility"], s=sizes, c=colors, edgecolor=DARK, linewidth=0.5, zorder=3)
+    offsets = {
+        "A0": (8, 7),
+        "A1": (8, -13),
+        "A2": (8, 8),
+        "B": (-28, 8),
+        "B2": (-30, -13),
+    }
+    for label, (_, row) in zip(labels, risk.iterrows()):
+        ax.annotate(label, (row["risk_count"], row["combined_target_utility"]), xytext=offsets[label], textcoords="offset points", fontsize=9.0,
+                    bbox=dict(boxstyle="round,pad=0.18", fc="white", ec="#C9CED6", lw=0.6, alpha=0.92))
+    ax.annotate("风险下降方向", xy=(0.15, risk["combined_target_utility"].iloc[-2]), xytext=(4.35, 11.75),
+                arrowprops=dict(arrowstyle="->", color=GRAY, lw=1.0), color=GRAY, fontsize=9.2)
+    ax.set_xlabel("高风险事件数")
     ax.set_ylabel("综合效用")
-    ax.set_title("收益--风险折中曲线")
-    for x, y, label in zip(risk["min_margin_filter"], risk["combined_target_utility"], labels):
-        ax.annotate(label, (x, y), xytext=(4, 5), textcoords="offset points", fontsize=8.2)
-    ax2 = ax.twinx()
-    ax2.plot(risk["min_margin_filter"], risk["risk_count"], marker="s", color=RED, label="高风险事件数")
-    ax2.plot(risk["min_margin_filter"], risk["scenario_pass_rate"], marker="^", color=TEAL, label="场景通过率")
-    ax2.set_ylabel("高风险事件数 / 场景通过率")
-    lines, line_labels = ax.get_legend_handles_labels()
-    lines2, labels2 = ax2.get_legend_handles_labels()
-    ax.legend(lines + lines2, line_labels + labels2, frameon=False, loc="center right")
+    ax.set_title("收益--风险 Pareto 方案族")
+    ax.invert_xaxis()
+    ax.set_xlim(risk["risk_count"].max() + 0.7, -0.7)
+    ax.set_ylim(risk["combined_target_utility"].min() - 0.6, risk["combined_target_utility"].max() + 0.6)
+    handles = [
+        mpl.lines.Line2D([0], [0], marker="o", color="w", label="收益优先", markerfacecolor=BLUE, markeredgecolor=DARK, markersize=7),
+        mpl.lines.Line2D([0], [0], marker="o", color="w", label="均衡", markerfacecolor=TEAL, markeredgecolor=DARK, markersize=7),
+        mpl.lines.Line2D([0], [0], marker="o", color="w", label="裕度优先", markerfacecolor=ORANGE, markeredgecolor=DARK, markersize=7),
+    ]
+    ax.legend(handles=handles, frameon=False, loc="lower left")
     style_axis(ax)
-    ax2.spines["top"].set_visible(False)
-    ax2.grid(False)
-    for path in [OUT / "v4" / "joint_risk_tradeoff_curve_clean.pdf", OUT / "v4" / "joint_risk_tradeoff_curve_clean.png"]:
-        kwargs = {"bbox_inches": "tight", "pad_inches": 0.04}
-        if path.suffix == ".png":
-            kwargs["dpi"] = 360
-        fig.savefig(path, **kwargs)
-    plt.close(fig)
+    fig.subplots_adjust(left=0.10, right=0.98, bottom=0.12, top=0.90)
+    save_both(fig, "joint_risk_tradeoff_curve_clean")
 
 
 def plot_attachment2_clean_v4() -> None:
@@ -437,12 +451,13 @@ def plot_kinematic_smoothing_compare() -> None:
     axes[1].plot(t[sample], acc_ref[sample], color="#9AA3AD", linewidth=0.9, alpha=0.82, label="参考源有限差分")
     axes[1].plot(t[sample], acc_rts[sample], color=ORANGE, linewidth=1.35, label="RTS 平滑状态")
     axes[1].set_xlabel("时间 / s")
-    axes[1].set_ylabel("加速度 / (m/s$^2$)")
+    axes[1].set_ylabel(r"加速度 / (m/s$^2$)", labelpad=8)
     axes[1].set_title("(b) 加速度序列")
     axes[1].legend(frameon=False, ncol=2)
     for ax in axes:
         style_axis(ax)
     fig.suptitle("附件2有限差分与 RTS 状态运动学量对比", y=0.99, fontsize=12.0)
+    fig.subplots_adjust(left=0.13, right=0.98, top=0.91, bottom=0.10, hspace=0.30)
     save_both(fig, "attachment2_kinematic_smoothing_compare")
 
 
@@ -486,24 +501,48 @@ def plot_task_spatial_and_gantt_v4() -> None:
     targets = read_targets()
     selected = pd.read_csv(B_DIR / "outputs" / "tables" / "joint_selected_events.csv")
 
-    fig, ax = plt.subplots(figsize=(7.0, 5.2))
-    ax.plot(traj[X_COL], traj[Y_COL], color="#8B929A", linewidth=0.9, alpha=0.72, label="融合轨迹")
+    fig, ax = plt.subplots(figsize=(7.6, 5.9))
+    ax.plot(traj[X_COL], traj[Y_COL], color="#C8CDD3", linewidth=0.75, alpha=0.70, label="10 Hz 融合轨迹", zorder=1)
     shoot = targets[targets["task"] == "shooting"]
     photo = targets[targets["task"] == "photo"]
-    ax.scatter(shoot[X_COL], shoot[Y_COL], s=30, color="#9FC5E8", alpha=0.7, label="射击目标")
-    ax.scatter(photo[X_COL], photo[Y_COL], s=30, color="#F4B183", alpha=0.7, label="拍照目标")
+    ax.scatter(shoot[X_COL], shoot[Y_COL], s=28, color="#7EA6CB", alpha=0.24, label="全部射击目标", zorder=2)
+    ax.scatter(photo[X_COL], photo[Y_COL], s=30, color="#E7A066", alpha=0.24, label="全部拍照目标", zorder=2)
     exec_pos = traj.set_index(TIME_COL).reindex(selected["execute_time"].to_numpy(float), method="nearest").reset_index()
     is_photo = selected["event_type"].eq("photo").to_numpy()
-    ax.scatter(exec_pos[X_COL][~is_photo], exec_pos[Y_COL][~is_photo], s=36, marker="o", color=BLUE, edgecolor=DARK, linewidth=0.4, label="射击执行点", zorder=4)
-    ax.scatter(exec_pos[X_COL][is_photo], exec_pos[Y_COL][is_photo], s=58, marker="^", color=ORANGE, edgecolor=DARK, linewidth=0.4, label="拍照执行点", zorder=5)
-    for _, row in selected[selected["event_type"].eq("photo")].iterrows():
-        pos = traj.iloc[(traj[TIME_COL] - float(row["execute_time"])).abs().argmin()]
-        ax.text(pos[X_COL] + 0.6, pos[Y_COL] + 0.6, str(row["covered_targets"]), fontsize=8.0, color=DARK)
+    ax.scatter(exec_pos[X_COL][~is_photo], exec_pos[Y_COL][~is_photo], s=42, marker="o", color=BLUE, edgecolor="white", linewidth=0.65, label="最终射击执行点", zorder=5)
+    ax.scatter(exec_pos[X_COL][is_photo], exec_pos[Y_COL][is_photo], s=86, marker="^", color=ORANGE, edgecolor=DARK, linewidth=0.65, label="最终拍照执行点", zorder=6)
+
+    covered_photo = sorted({p for txt in selected.loc[selected["event_type"].eq("photo"), "covered_targets"].astype(str) for p in txt.split(",")})
+    covered = photo[photo["编号"].isin(covered_photo)].copy()
+    ax.scatter(covered[X_COL], covered[Y_COL], s=52, color=ORANGE, edgecolor=DARK, linewidth=0.55, alpha=0.92, zorder=7)
+    label_groups = [
+        ("P01/P02", ["P01", "P02"], (-58, 18)),
+        ("P03/P04", ["P03", "P04"], (18, -18)),
+        ("P10", ["P10"], (10, -26)),
+        ("P11", ["P11"], (28, -10)),
+    ]
+    for label, members, offset in label_groups:
+        sub = covered[covered["编号"].isin(members)]
+        if sub.empty:
+            continue
+        xy = (float(sub[X_COL].mean()), float(sub[Y_COL].mean()))
+        ax.annotate(
+            label,
+            xy=xy,
+            xytext=offset,
+            textcoords="offset points",
+            fontsize=9.0,
+            color=DARK,
+            arrowprops=dict(arrowstyle="-", color=GRAY, lw=0.8, shrinkA=2, shrinkB=2),
+            bbox=dict(boxstyle="round,pad=0.16", fc="white", ec="#C9CED6", lw=0.55, alpha=0.94),
+            zorder=8,
+        )
     ax.set_xlabel("X 坐标 / m")
     ax.set_ylabel("Y 坐标 / m")
-    ax.set_title("联合任务空间分布")
+    ax.set_title("联合任务方案空间分布")
     style_axis(ax, equal=True)
-    ax.legend(frameon=False, loc="best")
+    ax.legend(frameon=False, loc="lower left", ncol=2)
+    fig.subplots_adjust(left=0.10, right=0.98, top=0.92, bottom=0.10)
     save_both(fig, "joint_task_spatial_distribution")
 
     work = selected.sort_values("execute_time").reset_index(drop=True)
@@ -718,7 +757,7 @@ def plot_kinematics() -> None:
     axes[1].fill_between(traj[TIME_COL], 0, traj["acceleration"], color=GRAY, alpha=0.10)
     axes[1].axhline(1.5, color=ORANGE, linestyle="--", linewidth=1.0, label="加速度上限")
     axes[1].set_xlabel("时间 / s")
-    axes[1].set_ylabel("加速度 / (m/s2)")
+    axes[1].set_ylabel(r"加速度 / (m/s$^2$)", labelpad=8)
     axes[1].legend(frameon=False)
     for ax in axes:
         style_axis(ax)
