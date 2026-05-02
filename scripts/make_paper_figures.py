@@ -324,6 +324,70 @@ def plot_time_space_speed_3d() -> None:
     save_both(fig, "time_space_speed_3d")
 
 
+def plot_attachment12_comparison() -> None:
+    """Compare attachment 1 and 2 on alignment, residual and trajectory evidence."""
+
+    a1 = pd.read_csv(B_DIR / "outputs" / "tables" / "attachment1_alignment_summary.csv")
+    a2 = pd.read_csv(B_DIR / "outputs" / "tables" / "kalman_bias_attachment2_summary.csv")
+    a2_base = a2[a2["method"].eq("RobustMedian")].iloc[0]
+    rows = pd.DataFrame(
+        [
+            {
+                "dataset": "附件1 无噪声",
+                "Delta": float(a1["Delta"].iloc[0]),
+                "rmse_before": float(a1["rmse_before"].iloc[0]),
+                "rmse_after": float(a1["rmse_after"].iloc[0]),
+                "bias_norm": 0.0,
+                "residual_sigma": float(a1["rmse_after"].iloc[0]),
+                "n_10hz_points": int(a1["n_10hz_points"].iloc[0]),
+            },
+            {
+                "dataset": "附件2 含噪+固定偏差",
+                "Delta": float(a2_base["Delta"]),
+                "rmse_before": float(a2_base["rmse_before"]),
+                "rmse_after": float(a2_base["rmse_after"]),
+                "bias_norm": float(np.hypot(a2_base["bx"], a2_base["by"])),
+                "residual_sigma": float(np.sqrt(a2_base["residual_var_x"] + a2_base["residual_var_y"])),
+                "n_10hz_points": len(pd.read_csv(B_DIR / "outputs" / "trajectories" / "fused_attachment2_10hz.csv")),
+            },
+        ]
+    )
+    rows.to_csv(OUT / "v4" / "attachment12_alignment_compare.csv", index=False)
+
+    traj1 = pd.read_csv(B_DIR / "outputs" / "trajectories" / "fused_attachment1_10hz.csv")
+    traj2 = pd.read_csv(B_DIR / "outputs" / "trajectories" / "fused_attachment2_10hz.csv")
+    fig, axes = plt.subplots(1, 3, figsize=(11.0, 3.8))
+
+    x = np.arange(len(rows))
+    width = 0.34
+    axes[0].bar(x - width / 2, rows["rmse_before"], width=width, color="#9AA3AD", label="对齐前 RMSE")
+    axes[0].bar(x + width / 2, rows["rmse_after"], width=width, color=BLUE, label="校正后 RMSE")
+    axes[0].set_xticks(x, rows["dataset"], rotation=12, ha="right")
+    axes[0].set_ylabel("RMSE / m")
+    axes[0].set_title("(a) 残差尺度")
+    axes[0].legend(frameon=False)
+
+    axes[1].bar(x, rows["bias_norm"], color=[TEAL, ORANGE], alpha=0.86)
+    axes[1].set_xticks(x, rows["dataset"], rotation=12, ha="right")
+    axes[1].set_ylabel("固定偏差模长 / m")
+    axes[1].set_title("(b) 固定偏差幅值")
+
+    def norm_time(s: pd.Series) -> pd.Series:
+        return (s - s.min()) / (s.max() - s.min())
+
+    step1 = max(1, len(traj1) // 900)
+    step2 = max(1, len(traj2) // 900)
+    axes[2].scatter(traj1[X_COL].iloc[::step1], traj1[Y_COL].iloc[::step1], c=norm_time(traj1[TIME_COL].iloc[::step1]), cmap="Blues", s=7, alpha=0.72, label="附件1")
+    axes[2].scatter(traj2[X_COL].iloc[::step2], traj2[Y_COL].iloc[::step2], c=norm_time(traj2[TIME_COL].iloc[::step2]), cmap="Oranges", s=7, alpha=0.72, label="附件2")
+    axes[2].set_xlabel("X 坐标 / m")
+    axes[2].set_ylabel("Y 坐标 / m")
+    axes[2].set_title("(c) 10 Hz 融合轨迹")
+    axes[2].legend(frameon=False)
+    for ax in axes:
+        style_axis(ax)
+    save_both(fig, "attachment12_alignment_compare")
+
+
 def plot_kinematic_smoothing_compare() -> None:
     """Compare finite-difference kinematics before and after state smoothing."""
 
@@ -1040,6 +1104,7 @@ def main() -> None:
     setup()
     copy_v4_figures()
     plot_attachment1_split_v4()
+    plot_attachment12_comparison()
     plot_risk_tradeoff_clean()
     plot_attachment2_clean_v4()
     plot_time_space_speed_3d()
