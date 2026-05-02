@@ -310,7 +310,7 @@ def plot_time_space_speed_3d() -> None:
     axes = []
 
     for idx, ((title, _), df) in enumerate(zip(datasets, frames), start=1):
-        step = max(1, len(df) // 650)
+        step = max(1, len(df) // (260 if idx == 1 else 520))
         sample = df.iloc[::step, :].copy()
         ax = fig.add_subplot(gs[0, idx - 1], projection="3d")
         axes.append(ax)
@@ -322,12 +322,12 @@ def plot_time_space_speed_3d() -> None:
             cmap="viridis",
             vmin=vmin,
             vmax=vmax,
-            s=10 if idx == 2 else 9,
-            alpha=0.88,
+            s=11 if idx == 2 else 13,
+            alpha=0.90,
             linewidths=0,
             depthshade=False,
         )
-        ax.plot(df[X_COL], df[Y_COL], df[TIME_COL], color="#B8C0C8", linewidth=0.85, alpha=0.80, zorder=1)
+        ax.plot(df[X_COL], df[Y_COL], df[TIME_COL], color="#CDD3D9", linewidth=0.90, alpha=0.58, zorder=1)
         ax.scatter(
             df[X_COL].iloc[0],
             df[Y_COL].iloc[0],
@@ -336,7 +336,6 @@ def plot_time_space_speed_3d() -> None:
             color=TEAL,
             edgecolor="white",
             linewidth=0.9,
-            label="起点",
             depthshade=False,
             zorder=5,
         )
@@ -348,23 +347,21 @@ def plot_time_space_speed_3d() -> None:
             color=RED,
             edgecolor="white",
             linewidth=0.9,
-            label="终点",
             depthshade=False,
             zorder=5,
         )
         ax.set_title(title, fontsize=11.3, pad=8)
-        ax.set_xlabel("X 坐标 / m", labelpad=8, fontsize=10.8)
-        ax.set_ylabel("Y 坐标 / m", labelpad=8, fontsize=10.8)
-        ax.set_zlabel("时间 / s", labelpad=10, fontsize=10.8)
-        ax.view_init(elev=24, azim=-60)
-        ax.tick_params(axis="both", which="major", labelsize=8.8, pad=1)
-        ax.zaxis.set_tick_params(labelsize=8.8, pad=3)
-        ax.legend(frameon=True, loc="upper left", bbox_to_anchor=(0.02, 0.98), fontsize=8.6, framealpha=0.92, edgecolor="#D7DCE2")
+        ax.set_xlabel("X 坐标 / m", labelpad=8, fontsize=10.5)
+        ax.set_ylabel("Y 坐标 / m", labelpad=8, fontsize=10.5)
+        ax.set_zlabel("时间 / s", labelpad=10, fontsize=10.5)
+        ax.view_init(elev=24, azim=-58)
+        ax.tick_params(axis="both", which="major", labelsize=8.5, pad=1)
+        ax.zaxis.set_tick_params(labelsize=8.5, pad=3)
         for axis in (ax.xaxis, ax.yaxis, ax.zaxis):
-            axis.pane.set_facecolor((0.98, 0.985, 0.99, 0.55))
-            axis.pane.set_edgecolor((0.84, 0.87, 0.91, 0.65))
-            axis._axinfo["grid"]["color"] = (0.72, 0.77, 0.82, 0.22)
-            axis._axinfo["grid"]["linewidth"] = 0.55
+            axis.pane.set_facecolor((0.98, 0.985, 0.99, 0.38))
+            axis.pane.set_edgecolor((0.84, 0.87, 0.91, 0.45))
+            axis._axinfo["grid"]["color"] = (0.72, 0.77, 0.82, 0.16)
+            axis._axinfo["grid"]["linewidth"] = 0.50
         ax.set_box_aspect((1.0, 1.0, 1.22))
 
     cax = fig.add_subplot(gs[0, 2])
@@ -372,15 +369,14 @@ def plot_time_space_speed_3d() -> None:
     sm = mpl.cm.ScalarMappable(norm=norm, cmap="viridis")
     sm.set_array([])
     cbar = fig.colorbar(sm, cax=cax)
-    cbar.set_label(r"速度 / (m·s$^{-1}$)", fontsize=10.5, labelpad=8)
-    cbar.ax.tick_params(labelsize=8.8)
+    cbar.set_label(r"速度 / (m·s$^{-1}$)", fontsize=10, labelpad=8)
+    cbar.ax.tick_params(labelsize=8.5)
     cbar.outline.set_linewidth(0.7)
 
-    fig.suptitle("时间参数化三维轨迹与速度散点", y=0.97, fontsize=12.0)
-    fig.subplots_adjust(left=0.04, right=0.94, bottom=0.06, top=0.88, wspace=0.22)
+    fig.subplots_adjust(left=0.04, right=0.94, bottom=0.035, top=0.90, wspace=0.22)
     for suffix in [".pdf", ".png"]:
         path = OUT / "v4" / f"time_space_speed_3d{suffix}"
-        kwargs = {"bbox_inches": "tight", "pad_inches": 0.05}
+        kwargs = {"bbox_inches": "tight", "pad_inches": 0.03}
         if suffix == ".png":
             kwargs["dpi"] = 300
         fig.savefig(path, **kwargs)
