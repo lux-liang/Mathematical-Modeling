@@ -631,7 +631,7 @@ def plot_joint_task_3d_events() -> None:
     is_photo = selected["event_type"].eq("photo").to_numpy()
     low_margin = selected["margin"].to_numpy(float) < 0.03
 
-    fig = plt.figure(figsize=(8.8, 6.2))
+    fig = plt.figure(figsize=(9.4, 6.8))
     ax = fig.add_subplot(111, projection="3d")
     step = max(1, len(traj) // 900)
     sample = traj.iloc[::step].copy()
@@ -687,13 +687,20 @@ def plot_joint_task_3d_events() -> None:
             zorder=8,
         )
 
-    ax.set_xlabel("X (m)", labelpad=7)
-    ax.set_ylabel("Y (m)", labelpad=7)
-    ax.set_zlabel("Event time (s)", labelpad=8)
+    x_pad = 8.0
+    y_pad = 8.0
+    ax.set_xlim(float(sample[X_COL].min()) - x_pad, float(sample[X_COL].max()) + x_pad)
+    ax.set_ylim(float(sample[Y_COL].min()) - y_pad, float(sample[Y_COL].max()) + y_pad)
+    ax.set_xlabel("")
+    ax.set_ylabel("")
+    ax.set_zlabel("执行时刻 / s", labelpad=10)
     ax.set_title("轨迹--时间--任务事件三维分布", pad=12)
-    ax.view_init(elev=25, azim=-60)
+    ax.view_init(elev=23, azim=-56)
     ax.set_box_aspect((1.0, 1.0, 1.18))
-    ax.tick_params(axis="both", which="major", labelsize=8.2, pad=0)
+    ax.xaxis.set_rotate_label(False)
+    ax.yaxis.set_rotate_label(False)
+    ax.zaxis.set_rotate_label(False)
+    ax.tick_params(axis="both", which="major", labelsize=8.2, pad=1)
     ax.zaxis.set_tick_params(labelsize=8.2, pad=2)
     for axis in (ax.xaxis, ax.yaxis, ax.zaxis):
         axis.pane.set_facecolor((0.98, 0.985, 0.99, 0.38))
@@ -710,7 +717,9 @@ def plot_joint_task_3d_events() -> None:
         mpl.lines.Line2D([0], [0], marker="o", color="w", markerfacecolor=RED, markeredgecolor="white", markersize=8, label="低裕度事件"),
     ]
     ax.legend(handles=handles, frameon=False, loc="upper left", bbox_to_anchor=(0.02, 0.98))
-    fig.subplots_adjust(left=0.08, right=0.90, bottom=0.20, top=0.92)
+    ax.text2D(0.23, -0.06, "X 坐标 / m", transform=ax.transAxes, fontsize=9.4, color=DARK)
+    ax.text2D(0.70, -0.06, "Y 坐标 / m", transform=ax.transAxes, fontsize=9.4, color=DARK)
+    fig.subplots_adjust(left=0.03, right=0.86, bottom=0.12, top=0.92)
     save_both(fig, "joint_task_3d_events")
 
 
