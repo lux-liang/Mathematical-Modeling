@@ -27,11 +27,17 @@
 \maketitle
 
 \begin{abstract}
-本文研究多源定位误差在移动机器人任务规划中的传导效应。四个子问题分别涉及时间对齐、偏差识别、残差检验和任务调度，但后续射击、拍照事件的可行性同时受轨迹位置、速度、加速度、FOV 边界和准备窗口约束。若只在轨迹层追求较小残差，局部噪声可能被误写成确定性修正，进而改变边界候选事件的判定。因此，本文按“先校准可稳定识别的误差，再评估不可稳定外推的残差风险”的顺序展开建模。
+本文围绕多源定位误差如何影响移动机器人射击、拍照任务调度展开建模。针对轨迹时间错位、固定空间偏差、实际残差外推风险和固定轨迹任务调度四类问题，建立“时间参数化轨迹对齐 $\rightarrow$ 固定偏差识别与状态空间融合 $\rightarrow$ 实际残差结构检验 $\rightarrow$ 事件级 MILP 任务优化”的方法链，使定位融合结果能够直接服务于候选事件生成、冲突约束构造和最终任务方案选择。
 
-方法上，先用时间参数化轨迹搜索两源时间偏移，避免回环轨迹下逐点比较的错配；再用鲁棒固定偏差估计、卡尔曼滤波和 RTS 平滑分离稳定偏差与随机扰动，使位置修正和运动学计算采用一致口径。对实际测量数据，构造 M0--M4 偏差模型，并用时间块交叉验证检验复杂残差模型的外推能力；未通过外推检验的残差不作为强校正量，而用于候选事件的风险复核。最后在固定轨迹上枚举射击、拍照候选事件，用 MILP 统一处理准备窗口冲突、射击收益递减、拍照覆盖和风险惩罚。
+针对问题一，附件 1 为无噪声双源轨迹，核心任务是确定两种定位方式的时间偏差并生成统一时间轴轨迹。本文以时间参数化轨迹 $p(t)$ 表示两源观测，在公共重叠区间上用 RMSE 搜索时间偏移，得到最优时间偏移 $\Delta=-198.4317\ \mathrm{s}$；对齐后两源轨迹 RMSE 约为 $9.06\times10^{-8}\ \mathrm{m}$，并输出 7004 个 10 Hz 融合轨迹点。因此，问题一的答案是：附件 1 的主要误差为常值时间错位，经对齐后可得到统一时间轴上的高精度 10 Hz 融合轨迹。
 
-结果显示，附件1最优时间偏移为 $\Delta=-198.4317\ \mathrm{s}$，对齐后 RMSE 约为 $9.06\times10^{-8}\ \mathrm{m}$；附件2固定偏差约为 $(3.480,-1.822)\ \mathrm{m}$，校正后 RMSE 约为 $0.7315\ \mathrm{m}$。附件3中 M3、M4 训练误差低于固定偏差模型 M1，但 5 折时间块平均 CV-RMSE 分别为 $3.0289\ \mathrm{m}$、$2.8636\ \mathrm{m}$，均劣于 M1 的 $2.7393\ \mathrm{m}$，因此不采用强校正。任务优化中，主方案覆盖 9 个射击目标和 6 个拍照目标，综合效用为 14.0998；保守方案将高风险事件数降为 0。上述结果表明，稳定系统偏差适合进入名义轨迹，未通过外推检验的残差更适合作为风险项保留；这种分层处理能减少由边界窗口误判带来的任务表不稳定。
+针对问题二，附件 2 同时包含时间错位、方式 2 相对方式 1 的固定平移偏差和随机噪声。本文先沿用时间参数化对齐，再用鲁棒中位数估计固定偏差，并通过卡尔曼滤波和 RTS 平滑获得一致的状态空间输出。结果表明，附件 2 的时间偏移为 $\Delta=-50.4947\ \mathrm{s}$，方式 2 相对方式 1 的固定偏差约为 $(3.480,-1.822)\ \mathrm{m}$，校正后 RMSE 约为 $0.7315\ \mathrm{m}$。RTS 平滑对位置 RMSE 的进一步改善有限，其主要作用是为后续任务筛选提供更稳定的位置、速度和加速度。因此，问题二的答案是：固定偏差可以被稳定识别并写入融合轨迹，随机噪声则通过状态空间平滑降低其对运动学量的放大影响。
+
+针对问题三，附件 3 的实际测量残差需要判断是否可被复杂模型稳定强校正。本文在完成时间对齐后得到 $\Delta=367.8843\ \mathrm{s}$，进一步构造 M0--M4 偏差结构模型，并用 5 折时间块交叉验证检验外推能力。结果显示，M3、M4 虽然训练误差更低，但平均 CV-RMSE 分别为 $3.0289\ \mathrm{m}$、$2.8636\ \mathrm{m}$，均劣于固定偏差模型 M1 的 $2.7393\ \mathrm{m}$。因此，问题三的答案不是采用更复杂模型强行修正附件 3，而是判定复杂残差结构没有稳定外推收益，将其作为风险复核信息传递给问题四。
+
+针对问题四，本文在固定轨迹下联合优化射击和拍照任务。先基于 10 Hz 融合轨迹、平滑运动学量和目标信息生成候选事件，再构造事件级 MILP，同时处理时间冲突、拍照角度冲突、射击收益递减和风险惩罚。最终生成 981 个射击候选事件和 47 个拍照候选事件，联合候选池共 1028 个事件；模型构造 43744 条时间冲突边和 467 条拍照角度冲突边。主方案 A 覆盖 9 个射击目标和 6 个拍照目标，射击期望命中数为 8.0998，综合效用为 14.0998；保守方案 B 通过提高裕度和风险偏好约束，将高风险事件数降为 0。因此，问题四的答案是给出收益优先的 A 方案和风险优先的 B 方案，分别对应高效用执行与保守鲁棒执行两种调度口径。
+
+综合四个问题，本文的核心结论是：稳定、可验证的时间偏差和固定偏差应进入名义轨迹，不稳定且不能稳定外推的残差应进入风险约束；最终通过事件级 MILP 在收益、冲突和风险之间进行全局权衡。该建模流程实现了从多源定位融合到任务调度优化的闭环，也避免了把局部残差纹理误写成确定性任务窗口所带来的决策风险。
 
 \keywords{卡尔曼滤波；RTS 平滑；RTK-GPS 轨迹处理；时间参数化轨迹；混合整数规划；收益风险折中}
 \end{abstract}
@@ -74,83 +80,51 @@
 
 \begin{figure}[H]
   \centering
-  \resizebox{\textwidth}{!}{%
+  \resizebox{0.98\textwidth}{!}{%
   \begin{tikzpicture}[
     font=\footnotesize,
-    node distance=7mm and 10mm,
     >=Stealth,
-    lane/.style={draw, rounded corners=2pt, fill=#1, inner sep=4pt, align=center},
-    input/.style={lane=gray!10, minimum width=34mm, minimum height=12mm, text width=31mm},
-    block/.style={draw, rounded corners=2pt, fill=#1, minimum width=37mm, minimum height=42mm, text width=34mm, inner sep=5pt, align=left},
-    output/.style={lane=gray!8, minimum width=34mm, minimum height=13mm, text width=31mm},
-    mainline/.style={draw, rounded corners=2pt, fill=yellow!22, line width=0.8pt, inner sep=5pt, align=center},
-    arrow/.style={->, line width=0.85pt, draw=black!72},
-    riskarrow/.style={->, line width=1.05pt, draw=black!82, dashed},
+    base/.style={draw, rounded corners=2pt, line width=0.55pt, inner sep=4pt, align=center},
+    data/.style={base, fill=gray!10, minimum width=34mm, text width=31mm},
+    proc/.style={base, fill=blue!7, minimum width=40mm, text width=37mm},
+    check/.style={base, fill=orange!12, minimum width=40mm, text width=37mm},
+    split/.style={draw, diamond, aspect=2.0, fill=yellow!18, inner sep=1.4pt, align=center, text width=25mm},
+    branch/.style={base, fill=yellow!12, minimum width=36mm, text width=33mm},
+    opt/.style={base, fill=red!7, minimum width=42mm, text width=39mm},
+    result/.style={base, fill=green!10, minimum width=42mm, text width=39mm},
+    mainarrow/.style={->, line width=1.1pt, draw=black!78},
+    flowarrow/.style={->, line width=0.85pt, draw=black!70},
+    riskarrow/.style={->, line width=0.9pt, draw=black!78, dashed},
     tag/.style={fill=white, inner sep=1.2pt, font=\scriptsize}
   ]
-    \node[input] (in1) {附件 1\\无噪声轨迹};
-    \node[input, right=of in1] (in2) {附件 2\\含噪轨迹};
-    \node[input, right=of in2] (in3) {附件 3\\实际测量轨迹};
-    \node[input, right=of in3] (in4) {射击 / 拍照目标};
+    \node[data] (traj) at (0,0) {附件 1/2/3\\轨迹数据};
+    \node[proc] (q1) at (4.2,0) {\textbf{问题一：时间对齐}\\$p(t)$\\RMSE 搜索 $\Delta$\\10 Hz 时间轴};
+    \node[proc] (q2) at (8.4,0) {\textbf{问题二：偏差识别与平滑}\\鲁棒偏差估计\\Kalman + RTS\\位置/速度/加速度};
+    \node[check] (q3) at (12.6,0) {\textbf{问题三：残差检验}\\M0--M4\\时间块 CV\\泛化判断};
 
-    \node[block=blue!8, below=7mm of in1] (q1) {
-      \centering\textbf{问题一}\\
-      \textbf{时间对齐与 10 Hz 输出}\par\vspace{1.5mm}
-      \raggedright
-      时间参数化轨迹 $p(t)$\\
-      RMSE 搜索 $\Delta$\\
-      公共时间轴\\
-      10 Hz 融合轨迹
-    };
-    \node[block=teal!10, below=7mm of in2] (q2) {
-      \centering\textbf{问题二}\\
-      \textbf{固定偏差与状态空间融合}\par\vspace{1.5mm}
-      \raggedright
-      鲁棒中位数偏差估计\\
-      状态空间模型\\
-      Kalman + RTS 平滑\\
-      位置 / 速度 / 加速度
-    };
-    \node[block=orange!12, below=7mm of in3] (q3) {
-      \centering\textbf{问题三}\\
-      \textbf{残差检验与风险转化}\par\vspace{1.5mm}
-      \raggedright
-      M0--M4 偏差模型\\
-      5 折时间块交叉验证\\
-      判断泛化能力\\
-      残差风险场景
-    };
-    \node[block=red!8, below=7mm of in4] (q4) {
-      \centering\textbf{问题四}\\
-      \textbf{射击--拍照事件级 MILP}\par\vspace{1.5mm}
-      \raggedright
-      射击 / 拍照候选事件\\
-      时间冲突边 / 角度冲突边\\
-      任务裕度与风险惩罚\\
-      HiGHS 求解 A/B 方案
-    };
+    \node[split] (split) at (12.6,-2.25) {\textbf{误差分流}};
+    \node[branch] (stable) at (8.4,-3.9) {稳定误差\\可校正偏差\\$\rightarrow$ 名义轨迹};
+    \node[branch] (risk) at (16.8,-3.9) {不稳定残差\\不可外推结构\\$\rightarrow$ 风险约束};
+    \node[circle, draw, fill=white, inner sep=1.5pt, line width=0.55pt] (merge) at (12.6,-5.25) {\scriptsize 汇合};
 
-    \node[output, below=7mm of q1] (out1) {公共时间轴\\10 Hz 融合轨迹};
-    \node[output, below=7mm of q2] (out2) {平滑位置\\速度 / 加速度};
-    \node[output, below=7mm of q3] (out3) {风险复核信息};
-    \node[output, below=7mm of q4] (out4) {任务执行表\\收益--风险对比};
+    \node[data] (target) at (0,-6.55) {射击/拍照目标};
+    \node[opt] (cand) at (4.7,-6.55) {候选事件生成\\射击/拍照候选\\时间/角度冲突};
+    \node[opt] (q4) at (9.4,-6.55) {\textbf{问题四：事件级 MILP}\\风险惩罚\\HiGHS 求解};
+    \node[result] (out) at (14.3,-6.55) {A 收益优先方案\\B 保守鲁棒方案\\任务执行表\\收益--风险对比};
 
-    \draw[arrow] (in1) -- (q1);
-    \draw[arrow] (in2) -- (q2);
-    \draw[arrow] (in3) -- (q3);
-    \draw[arrow, line width=1.05pt] (in4) -- node[right, tag] {任务目标} (q4);
-    \draw[arrow] (q1) -- (out1);
-    \draw[arrow] (q2) -- (out2);
-    \draw[arrow] (q3) -- (out3);
-    \draw[arrow] (q4) -- node[right, tag] {优化输出} (out4);
-
-    \draw[arrow] (out1) -- node[above, tag] {时间对齐} (out2);
-    \draw[arrow] (out2) -- node[above, tag] {平滑状态} (out3);
-    \draw[arrow, rounded corners=4pt] (out2.south) -- ++(0,-5mm) -| node[pos=0.30, below, tag] {运动学输入} (q4.south west);
-    \draw[riskarrow, rounded corners=4pt] (out3.east) -- ++(5mm,0) |- node[pos=0.70, left, tag] {风险输入} (q4.west);
-
-    \node[mainline, below=10mm of out2, minimum width=152mm, text width=142mm] (principle)
-      {\textbf{核心主线：}稳定误差写入名义轨迹；不稳定残差转化为风险约束；最终在收益、冲突和风险之间全局权衡。};
+    \draw[mainarrow] (traj) -- (q1);
+    \draw[mainarrow] (q1) -- (q2);
+    \draw[mainarrow] (q2) -- (q3);
+    \draw[mainarrow] (q3) -- (split);
+    \draw[flowarrow] (split) -| (stable);
+    \draw[riskarrow] (split) -| (risk);
+    \draw[flowarrow] (stable) |- (merge);
+    \draw[riskarrow] (risk) |- (merge);
+    \draw[mainarrow, rounded corners=4pt] (merge) -- ++(0,-0.55) -| node[pos=0.36, above, tag] {名义轨迹 + 风险约束} (cand.north);
+    \draw[flowarrow, rounded corners=4pt] (q2.south) -- ++(0,-1.15) -| node[pos=0.25, below, tag] {平滑运动学量} (cand.north);
+    \draw[flowarrow] (target) -- node[above, tag] {任务目标} (cand);
+    \draw[mainarrow] (cand) -- (q4);
+    \draw[mainarrow] (q4) -- (out);
   \end{tikzpicture}
   }
   \caption{多源定位融合与固定轨迹任务调度总体建模框架}
